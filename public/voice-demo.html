@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+  body { overflow:hidden; font-family:'Inter',-apple-system,sans-serif;
+         display:flex; align-items:center; justify-content:center; background:transparent; }
+
+  /* fixed 1180×300 canvas, scaled to fit (notch-demo technique). transform-origin: center. */
+  #stage { position:relative; width:1180px; height:300px; flex:none; }
+
+  .bar { background:#0a0a0c; box-shadow:0 16px 40px -10px rgba(0,0,0,0.5); }
+
+  /* NEUTRAL pill — hangs from the top edge, bottom corners rounded */
+  #pill { position:absolute; top:0; left:50%; margin-left:-150px; width:300px; height:50px;
+          border-radius:0 0 24px 24px; display:flex; align-items:center; padding:0 22px; z-index:5;
+          transition:opacity .3s ease; }
+  #pill .licons { display:flex; align-items:center; gap:9px; flex:none; }
+  #pill .mid { flex:1; display:flex; align-items:center; justify-content:center; gap:11px; }
+  #pill .gdot { width:10px; height:10px; border-radius:50%; background:#2fcf4e; }
+  #pill .nm { color:#fff; font-weight:600; font-size:18px; }
+
+  /* VOICE flanking island — one bar across the notch, bottom corners rounded */
+  #flank { position:absolute; top:0; left:50%; margin-left:-358px; width:716px; height:52px;
+           border-radius:0 0 26px 26px; display:flex; align-items:center; overflow:hidden; opacity:0; z-index:6;
+           transition:opacity .3s ease; }
+  .lwing { display:flex; align-items:center; gap:12px; padding-left:22px; width:282px; flex:none; min-width:0; }
+  #appicon { width:28px; height:28px; border-radius:7px; flex:none; background:#fff; overflow:hidden;
+             display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+  #appicon svg { width:20px; height:20px; display:block; }
+  #status { color:#fff; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gap { width:188px; flex:none; display:flex; justify-content:center; align-items:flex-start; padding-top:9px; }
+  .lens { width:8px; height:8px; border-radius:50%; background:#16161c; box-shadow:inset 0 0 2px #000; }
+  .rwing { display:flex; align-items:center; gap:12px; padding-right:16px; margin-left:auto; flex:none; }
+  #wave { display:block; width:126px; height:28px; }
+  #stop { width:34px; height:34px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; }
+  #stop i { width:12px; height:12px; border-radius:3px; background:#111; display:block; }
+  #chev { position:absolute; top:56px; left:50%; margin-left:-9px; opacity:0; transition:opacity .3s ease; z-index:6; }
+
+  /* transcript / step log — the dropdown panel that opens below the island (movable VoiceLogPanel) */
+  #log { position:absolute; top:84px; left:50%; margin-left:-310px; width:620px; padding:18px 22px;
+         border-radius:16px; opacity:0; transform:translateY(-8px); transition:opacity .35s ease, transform .35s ease; z-index:4; }
+  .lrow { display:flex; align-items:center; gap:12px; font-size:16px; line-height:1.4; padding:5px 0; }
+  .lrow .ic { width:24px; height:24px; border-radius:6px; flex:none; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .lrow .ic svg { width:16px; height:16px; display:block; }
+  .lrow.you .ic { background:#2c2c2e; } .lrow.you .tx { color:#e6e6e9; }
+  .lrow.act .ic { background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.3); } .lrow.act .tx { color:#cfcfd2; }
+  .lrow .chk { margin-left:auto; color:#5fd08a; font-size:15px; flex:none; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.45;} }
+</style>
+</head>
+<body>
+  <div id="stage">
+
+    <!-- NEUTRAL -->
+    <div id="pill" class="bar">
+      <span class="licons">
+        <svg width="20" height="16" viewBox="0 0 20 18" fill="none"><rect x="1" y="1" width="18" height="16" rx="4" stroke="#d6d6da" stroke-width="1.6"/><line x1="7.5" y1="1" x2="7.5" y2="17" stroke="#d6d6da" stroke-width="1.6"/></svg>
+        <svg id="micbtn" width="14" height="18" viewBox="0 0 24 24" fill="none" stroke="#d6d6da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:stroke .2s ease;"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+      </span>
+      <div class="mid"><span class="gdot"></span><span class="nm">Tine</span></div>
+      <svg width="16" height="10" viewBox="0 0 18 11" fill="none" style="flex:none;"><path d="M1 1.5 L9 9 L17 1.5" stroke="#cfcfd2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- VOICE -->
+    <div id="flank" class="bar">
+      <div class="lwing">
+        <span id="appicon"></span>
+        <span id="status">Listening…</span>
+      </div>
+      <div class="gap"><span class="lens"></span></div>
+      <div class="rwing">
+        <canvas id="wave" width="252" height="56"></canvas>
+        <span id="stop"><i></i></span>
+      </div>
+    </div>
+    <svg id="chev" width="18" height="10" viewBox="0 0 18 11" fill="none"><path d="M1 9 L9 1.5 L17 9" stroke="#9a9aa0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+    <!-- cursor (glides to the mic and clicks to start the voice session) -->
+    <div id="cursor" style="position:absolute; top:0; left:0; opacity:0; transform:translate(840px,250px) scale(1); transition:transform .85s cubic-bezier(.4,0,.2,1), opacity .3s ease; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35)); z-index:30;">
+      <svg width="26" height="32" viewBox="0 0 26 32" fill="none"><path d="M3 2 L3 24 L9.5 18.5 L13.5 27.5 L17 26 L13 17 L22 17 Z" fill="#0a84ff" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- transcript log -->
+    <div id="log" class="bar">
+      <div class="lrow you"><span class="ic"><svg width="13" height="13" viewBox="0 0 16 16" fill="#bcbcc0"><circle cx="8" cy="5" r="3"/><path d="M2 15c0-3.3 2.7-5 6-5s6 1.7 6 5z"/></svg></span><span class="tx" id="logYou"></span></div>
+      <div class="lrow act" id="logAct" style="opacity:0;"><span class="ic" id="logIcon"></span><span class="tx" id="logActTx"></span><span class="chk">✓</span></div>
+    </div>
+
+  </div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const stage=$('stage'), pill=$('pill'), flank=$('flank'), status=$('status'), chev=$('chev'), appicon=$('appicon'),
+        log=$('log'), logAct=$('logAct'), logIcon=$('logIcon'), logYou=$('logYou'), logActTx=$('logActTx'),
+        cursor=$('cursor'), micbtn=$('micbtn');
+  const MIC = { x: 488, y: 16 };   // where the cursor tip lands on the mic button
+
+  // ── real brand logos ─────────────────────────────────────────────────────────────────────
+  const SLACK = '<svg viewBox="0 0 122.8 122.8">'
+    +'<path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9z" fill="#E01E5A"/>'
+    +'<path d="M32.3 77.6c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#E01E5A"/>'
+    +'<path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2z" fill="#36C5F0"/>'
+    +'<path d="M45.2 32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36C5F0"/>'
+    +'<path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2z" fill="#2EB67D"/>'
+    +'<path d="M90.5 45.2c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2EB67D"/>'
+    +'<path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9z" fill="#ECB22E"/>'
+    +'<path d="M77.6 90.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ECB22E"/></svg>';
+  const GMAIL = '<svg viewBox="0 0 256 193">'
+    +'<path fill="#4285F4" d="M58.18 192.05V93.14L27.5 65.08 0 49.5v125.1c0 9.66 7.82 17.45 17.45 17.45z"/>'
+    +'<path fill="#34A853" d="M197.82 192.05h40.73c9.65 0 17.45-7.82 17.45-17.45V49.5l-31.16 17.84-27.02 25.8z"/>'
+    +'<path fill="#EA4335" d="M58.18 93.14 54 54.5 58.18 17.5 128 69.87l69.82-52.37 4.67 35-4.67 40.64L128 145.5z"/>'
+    +'<path fill="#FBBC04" d="M197.82 17.5v75.64L256 49.5V26.23c0-21.58-24.64-33.9-41.9-20.94z"/>'
+    +'<path fill="#C5221F" d="M0 49.5 26.76 69.57 58.18 93.14V17.5L41.9 5.29C24.6-7.66 0 4.65 0 26.23z"/></svg>';
+  const CAL = '<svg viewBox="0 0 200 200">'
+    +'<path fill="#fff" d="M152.6 47.4H47.4v105.2h105.2z"/>'
+    +'<path fill="#EA4335" d="M152.6 200 200 152.6h-47.4z"/>'
+    +'<path fill="#FBBC04" d="M200 47.4h-47.4v105.2H200z"/>'
+    +'<path fill="#34A853" d="M152.6 152.6H47.4V200h105.2z"/>'
+    +'<path fill="#188038" d="M0 152.6v33.9C0 193.1 6.9 200 13.5 200h33.9v-47.4z"/>'
+    +'<path fill="#1967D2" d="M200 47.4V13.5C200 6.9 193.1 0 186.5 0h-33.9v47.4z"/>'
+    +'<path fill="#4285F4" d="M152.6 0H13.5C6.9 0 0 6.9 0 13.5v139.1h47.4V47.4h105.2z"/>'
+    +'<text x="100" y="125" font-size="66" font-weight="700" fill="#4285F4" text-anchor="middle" font-family="Arial,sans-serif">31</text></svg>';
+
+  const CMDS = [
+    { icon: SLACK, you: 'message #team — standup’s at 10', act: 'Posted to #team in Slack' },
+    { icon: GMAIL, you: 'reply to Sarah — sounds good',    act: 'Reply sent in Gmail' },
+    { icon: CAL,   you: 'move standup to 10am',            act: 'Moved to 10:00 AM in Calendar' },
+  ];
+
+  function fit(){ const s=Math.min(window.innerWidth/1180, window.innerHeight/300); stage.style.transform='scale('+s+')'; }
+  fit(); window.addEventListener('resize', fit); setTimeout(fit,60); setTimeout(fit,250);
+
+  // white waveform (thin rounded bars, alpha 0.4+0.6·level — like Waveform.swift)
+  const wave=$('wave'), ctx=wave.getContext('2d'), DPR=2;
+  const BW=4.5*DPR, GAP=2.4*DPR, N=Math.floor(wave.width/(BW+GAP)), levels=new Array(N).fill(0.06);
+  let target=0, energy=0, t=0, fc=0;
+  function draw(){
+    energy+=(target-energy)*0.10;
+    // push a new bar only every 5th frame → the wave scrolls calmly instead of racing
+    if((fc++ % 5)===0){
+      t+=0.55;
+      const lv=target<0.05?0.05:Math.max(0.14,Math.min(1,(Math.sin(t)*0.5+0.5)*0.5+Math.random()*0.4));
+      levels.push(lv); if(levels.length>N) levels.shift();
+    }
+    const w=wave.width,h=wave.height,mid=h/2; ctx.clearRect(0,0,w,h);
+    for(let i=0;i<N;i++){ const l=levels[i]*energy, bh=Math.max(2*DPR,l*(h-8)), x=i*(BW+GAP), r=Math.min(BW/2,bh/2);
+      ctx.fillStyle='rgba(255,255,255,'+(0.4+0.6*Math.min(1,l))+')';
+      ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,mid-bh/2,BW,bh,r); else ctx.rect(x,mid-bh/2,BW,bh); ctx.fill(); }
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  function set(el,o){ for(const k in o) el.style[k]=o[k]; }
+  // cursor glide + click (same feel as the notch-demo)
+  function moveCursor(x,y){ set(cursor,{opacity:'1', transition:'transform .85s cubic-bezier(.4,0,.2,1), opacity .3s ease', transform:`translate(${x}px,${y}px) scale(1)`}); }
+  function pressCursor(x,y){
+    cursor.style.transition='transform .12s ease';
+    cursor.style.transform=`translate(${x}px,${y}px) scale(0.82)`;
+    timers.push(setTimeout(()=>{ cursor.style.transform=`translate(${x}px,${y}px) scale(1)`;
+      timers.push(setTimeout(()=>{ cursor.style.transition='transform .85s cubic-bezier(.4,0,.2,1), opacity .3s ease'; }, 150)); }, 130));
+  }
+  function neutral(){ set(pill,{opacity:'1'}); set(flank,{opacity:'0'}); set(chev,{opacity:'0'});
+    set(log,{opacity:'0', transform:'translateY(-8px)'}); set(logAct,{opacity:'0'}); set(appicon,{animation:'none'});
+    micbtn.style.stroke='#d6d6da'; set(cursor,{opacity:'0'}); cursor.style.transform='translate(880px,250px) scale(1)';
+    target=0; status.style.color='#fff'; status.textContent='Listening…'; }
+  function expand(){ set(pill,{opacity:'0'}); set(flank,{opacity:'1'}); set(chev,{opacity:'1'});
+    set(appicon,{animation:'pulse 1.1s ease-in-out infinite'}); target=0.9; }
+
+  let timers=[], ci=0;
+  function loop(){
+    timers.forEach(clearTimeout); timers=[];
+    const c = CMDS[ci % CMDS.length]; ci++;
+    neutral();
+    appicon.innerHTML = c.icon;            // brand logo in the flanking island
+    logIcon.innerHTML = c.icon;            // and in the transcript log row
+    logYou.textContent = c.you;
+    logActTx.textContent = c.act;
+    // 1) cursor glides over to the mic button and clicks it
+    timers.push(setTimeout(()=>{ moveCursor(MIC.x, MIC.y); }, 400));
+    timers.push(setTimeout(()=>{ pressCursor(MIC.x, MIC.y); micbtn.style.stroke='#3aa0ff'; }, 1500));
+    // 2) the click opens the voice session
+    timers.push(setTimeout(()=>{ set(cursor,{opacity:'0'}); expand(); }, 2000));
+    timers.push(setTimeout(()=>{ status.textContent='“'+c.you+'”'; set(log,{opacity:'1', transform:'translateY(0)'}); }, 3400));
+    timers.push(setTimeout(()=>{ set(logAct,{opacity:'1'}); }, 4800));
+    timers.push(setTimeout(()=>{ status.textContent='Done ✓'; status.style.color='#7ee0a8'; set(appicon,{animation:'none'}); target=0.16; }, 6200));
+    timers.push(setTimeout(loop, 7900));
+  }
+  loop();
+})();
+</script>
+</body>
+</html>

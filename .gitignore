@@ -1,0 +1,37 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+dist-ssr/
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / os
+.DS_Store
+.vscode/
+.idea/
+
+# env
+.env
+.env.*
+!.env.example
+
+# fly
+.fly/
+
+# macOS Swift app (macos-app/) — build artifacts & the signed app bundle
+# NOTE: ClickyMine.app/Contents/Info.plist holds the OPENROUTER_API_KEY — never commit it.
+macos-app/.build/
+.build/
+.swiftpm/
+*.app/
+
+# python grounding server (grounding-server/)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/

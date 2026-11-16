@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./pa-support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    html, body { margin: 0; padding: 0; }
+    @keyframes pa-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</helmet>
+<div style="width: 100%; background: #faf8f3; line-height: 0;">
+  <div ref="{{ wrapRef }}" style="position: relative; width: 100%; overflow: hidden; line-height: 0; cursor: crosshair;">
+    <canvas ref="{{ canvasRef }}" style="display: block; width: 100%; height: auto; background: #faf8f3;"></canvas>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    this.mouse = { x: -9999, y: -9999, active: false };
+    this.tiles = [];
+    this.cols = 80;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.BG = "#faf8f3";
+
+    this._retryT = null;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => { this.img = img; this.setup(); };
+    img.src = "assets/coder-small.png";
+
+    this.onResize = () => { if (this.img) this.setup(); };
+    window.addEventListener("resize", this.onResize);
+    // re-run setup when the container first gets a real width (robust to the
+    // image loading before layout resolves)
+    if (window.ResizeObserver) {
+      this.ro = new ResizeObserver(() => { if (this.img) this.setup(); });
+      this.ro.observe(this.wrap);
+    }
+
+    this.onMove = (e) => {
+      const r = this.canvas.getBoundingClientRect();
+      this.mouse.x = (e.clientX - r.left) * (this.W / r.width);
+      this.mouse.y = (e.clientY - r.top) * (this.H / r.height);
+      this.mouse.active = true;
+    };
+    this.onLeave = () => { this.mouse.active = false; };
+    this.wrap.addEventListener("pointermove", this.onMove);
+    this.wrap.addEventListener("pointerleave", this.onLeave);
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+    if (this.ro) this.ro.disconnect();
+    window.removeEventListener("resize", this.onResize);
+    if (this.wrap) {
+      this.wrap.removeEventListener("pointermove", this.onMove);
+      this.wrap.removeEventListener("pointerleave", this.onLeave);
+    }
+  }
+
+  hash(x, y) {
+    const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  setup() {
+    const ctx = this.canvas.getContext("2d");
+    const cssW = this.wrap.clientWidth;
+    // bail until the container has a real, resolved width — retry via a single
+    // bounded timer (rAF can be throttled until a user event; avoid spinning)
+    if (!cssW || !isFinite(cssW)) {
+      if (this._retryT == null && (this._retries = (this._retries || 0) + 1) < 80) {
+        this._retryT = setTimeout(() => { this._retryT = null; if (this.img) this.setup(); }, 60);
+      }
+      return;
+    }
+    const aspect = this.img.height / this.img.width;
+    const tile = cssW / this.cols;
+    const rows = Math.round((cssW * aspect) / tile);
+    const cssH = rows * tile;
+    if (!(rows > 0)) return;
+
+    this.W = cssW; this.H = cssH; this.tile = tile; this.rows = rows;
+    this.canvas.width = Math.round(cssW * this.dpr);
+    this.canvas.height = Math.round(cssH * this.dpr);
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    this.ctx = ctx;
+
+    const off = document.createElement("canvas");
+    off.width = this.cols; off.height = rows;
+    const octx = off.getContext("2d");
+    octx.imageSmoothingEnabled = false;
+    octx.drawImage(this.img, 0, 0, this.cols, rows);
+    const data = octx.getImageData(0, 0, this.cols, rows).data;
+
+    // "?sky" → ignore the figure entirely and fill the WHOLE grid with a blue sky + clouds.
+    const SKY_ONLY = /[?&]sky/.test(location.search);
+    // smooth value-noise (bilinear-interpolated hash) → soft cloud blobs that fill the area
+    const vnoise = (x, y) => {
+      const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+      const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+      const tl = this.hash(xi, yi), tr = this.hash(xi + 1, yi), bl = this.hash(xi, yi + 1), br = this.hash(xi + 1, yi + 1);
+      return (tl * (1 - u) + tr * u) * (1 - v) + (bl * (1 - u) + br * u) * v;
+    };
+    const fbm = (x, y) => 0.6 * vnoise(x / 9, y / 7) + 0.3 * vnoise(x / 4, y / 3.5) + 0.1 * vnoise(x / 2, y / 2);
+    this.tiles = [];
+    for (let ry = 0; ry < rows; ry++) {
+      for (let rx = 0; rx < this.cols; rx++) {
+        const p = (ry * this.cols + rx) * 4;
+        const r = data[p], g = data[p + 1], b = data[p + 2];
+        // sample the clean pixel-art colour directly (keeps squares crisp)
+        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+        const isDark = luma < 70;                       // figure / ground / monitor
+        const isLight = luma > 188;                     // cloud / paper background
+        const isSky = b > 150 && b > r + 18 && luma < 232; // dappled blue tiles
+        const h1 = this.hash(rx + 0.5, ry + 0.5);
+        const h2 = this.hash(rx + 7.31, ry + 2.17);
+
+        // clean squares only — no scattered dot texture, for a calmer, more professional read
+        let shape = "square", variant = 0;
+
+        // leave some cells empty so the grid reads natural, not perfectly
+        // packed — airier in the light sky, only the occasional gap elsewhere
+        const airy = isLight || isSky;
+        const hs = this.hash(rx + 3.7, ry + 9.1);
+        // keep EVERY blue sky tile (never skip it) so the blueness stays strong; only the plain
+        // cream / cloud cells thin out a little
+        let skip, cr, cg, cb;
+        if (SKY_ONLY) {
+          // procedural sky that fills the ENTIRE section — blue with soft cloud blobs
+          const n = fbm(rx, ry);
+          if (n > 0.60)      { cr = 246; cg = 247; cb = 249; }   // cloud
+          else if (n > 0.52) { cr = 200; cg = 216; cb = 250; }   // cloud edge (pale blue)
+          else               { cr = 126; cg = 162; cb = 238; }   // blue sky
+          skip = (n > 0.60) ? (hs > 0.86) : false;               // a little airiness inside the clouds
+        } else {
+          skip = isSky ? false : (airy ? hs > 0.9 : hs > 0.985);
+          // nudge blue sky tiles a touch more saturated so the blueness reads strongly even at low res
+          cr = isSky ? Math.round(r * 0.78) : r;
+          cg = isSky ? Math.round(g * 0.86) : g;
+          cb = isSky ? Math.min(255, Math.round(b * 1.08)) : b;
+        }
+        // a sparse few blocks become "movers" that drift left and dissolve
+        const mover = this.hash(rx + 5.13, ry + 1.27) < 0.05;
+        const ph0 = this.hash(rx + 2.1, ry + 8.4) * 4200;
+
+        this.tiles.push({
+          hx: rx * tile + tile / 2,
+          hy: ry * tile + tile / 2,
+          rx, ry, shape, variant, skip, mover, ph0,
+          col: `rgb(${cr},${cg},${cb})`,
+          seed: h2 * 6.2832,
+        });
+      }
+    }
+
+    // repaint immediately (covers re-setups that cleared the canvas), and
+    // start the animation loop only once
+    this.draw();
+    if (!this.looping) { this.looping = true; this.loop(); }
+  }
+
+  loop() {
+    this.draw();
+    this.raf = requestAnimationFrame(() => this.loop());
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const { W, H, tile } = this;
+
+    // smooth, critically-damped cursor follow (no overshoot / rubber)
+    if (!this.sm) this.sm = { x: this.mouse.x, y: this.mouse.y };
+    this.sm.x += (this.mouse.x - this.sm.x) * 0.3;
+    this.sm.y += (this.mouse.y - this.sm.y) * 0.3;
+    const mx = this.sm.x, my = this.sm.y;
+    const active = this.mouse.active;
+
+    const lensR = Math.max(74, W * 0.11);
+    const band = lensR * 0.85;
+    const sz = tile * 0.9;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = this.BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // crisp illustration shows only through the hover window
+    if (active) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(mx, my, lensR + band, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.img, 0, 0, W, H);
+      ctx.restore();
+    }
+
+    const drawGlyph = (cx, cy, cell, alpha, scale) => {
+      const s = sz * scale;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = cell.col;
+      if (cell.shape === "dot") {
+        const r = cell.variant === 1 ? tile * 0.3 : tile * 0.18;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
+      }
+    };
+
+    // --- 1. the STILL image: every block drawn at home (with hover parting) ---
+    for (const tl of this.tiles) {
+      if (tl.skip) continue;
+      let ox = 0, oy = 0, scale = 1, alpha = 1;
+      if (active) {
+        const dx = tl.hx - mx, dy = tl.hy - my;
+        const d = Math.hypot(dx, dy);
+        if (d <= lensR) { continue; }
+        if (d < lensR + band) {
+          const inv = 1 / (d || 0.001);
+          let e = (lensR + band - d) / band;
+          e = e * e * (3 - 2 * e);
+          ox += dx * inv * e * tile * 1.5;
+          oy += dy * inv * e * tile * 1.5;
+          scale = 1 - 0.5 * e;
+          alpha = 1 - 0.85 * e;
+          if (alpha <= 0.02) continue;
+        }
+      }
+      drawGlyph(tl.hx + ox, tl.hy + oy, tl, alpha, scale);
+    }
+
+    // --- 2. ONLY a sparse few blocks drift leftward and gently dissolve ---
+    const now = performance.now();
+    const cycle = 4200;          // ms for one drift
+    const maxDist = tile * 7;    // how far left it travels
+    for (const tl of this.tiles) {
+      if (!tl.mover || tl.skip) continue;
+      const u = ((now + tl.ph0) % cycle) / cycle;   // 0..1 progress
+      let a = 0.8;
+      if (u < 0.14) a = 0.8 * (u / 0.14);           // fade in
+      else if (u > 0.66) a = 0.8 * ((1 - u) / 0.34); // fade out
+      if (a <= 0.02) continue;
+      const cx = tl.hx - u * maxDist, cy = tl.hy;
+      if (cx < -tile) continue;
+      if (active && Math.hypot(cx - mx, cy - my) <= lensR) continue;
+      drawGlyph(cx, cy, tl, a, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  renderVals() {
+    return {
+      canvasRef: (el) => { this.canvas = el; },
+      wrapRef: (el) => { this.wrap = el; },
+    };
+  }
+}
+</script>
+</body>
+</html>

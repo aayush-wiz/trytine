@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Perch — A second cursor that does the work.</title>
+  <meta name="description" content="Perch lives next to your mouse. It watches what you're doing, offers a hand, and — on your say-so — finishes the task itself." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Archivo',sans-serif;-webkit-font-smoothing:antialiased;background:#faf8f3;}
+    ::selection{background:oklch(0.55 0.16 255);color:#fff;}
+    @keyframes floaty{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
+    @keyframes dotpulse{0%,100%{opacity:.3;}50%{opacity:1;}}
+    @keyframes caretblink{0%,49%{opacity:1;}50%,100%{opacity:0;}}
+    .hv-brand:hover{background:oklch(0.62 0.16 255)!important;}
+    .hv-ink:hover{background:rgba(26,23,20,0.05)!important;}
+    .hv-dark:hover{background:#312b24!important;}
+    .hv-row:hover{background:rgba(26,23,20,0.03)!important;}
+  </style>
+
+  <!-- React + Babel from CDN (no build step — just open this file) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ---- theme ----
+    const C = {
+      bg:"#faf8f3", ink:"#1a1714", brand:"oklch(0.55 0.16 255)", brandHi:"oklch(0.62 0.16 255)",
+      brandSoft:"oklch(0.5 0.15 255)", brandText:"oklch(0.52 0.15 255)",
+      brandBorder:"oklch(0.6 0.13 255 / 0.5)", brandBorderStrong:"oklch(0.6 0.13 255 / 0.55)",
+      muted:"rgba(26,23,20,0.66)", muted2:"rgba(26,23,20,0.6)", faint:"rgba(26,23,20,0.12)",
+      faintBorder:"rgba(26,23,20,0.14)", sub:"#6f6a62", text2:"#3a352e",
+    };
+    const mono = "'IBM Plex Mono', monospace";
+
+    // ---- ascii cursor ----
+    function asciiCursor(rows = 22) {
+      const poly = [[0,0],[0,16.5],[4.2,12.6],[6.7,18.8],[8.9,17.8],[6.4,11.8],[12,11.8]];
+      const xMax = 12, yMax = 18.8;
+      const inside = (px, py) => {
+        let c = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+          const [xi, yi] = poly[i], [xj, yj] = poly[j];
+          if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c;
+        }
+        return c;
+      };
+      const cols = Math.round(0.92 * rows);
+      let out = "";
+      for (let r = 0; r < rows; r++) {
+        const py = (r + 0.5) / rows * yMax;
+        let line = "";
+        for (let col = 0; col < cols; col++) line += inside((col + 0.5) / cols * xMax, py) ? "█" : " ";
+        out += line.replace(/\s+$/, "") + "\n";
+      }
+      return out;
+    }
+
+    function useTypewriter(phrases) {
+      const [text, setText] = useState("");
+      useEffect(() => {
+        let pi = 0, ci = 0, deleting = false, t;
+        const step = () => {
+          const w = phrases[pi];
+          if (!deleting) { ci++; setText(w.slice(0, ci)); if (ci >= w.length) { deleting = true; t = setTimeout(step, 1400); return; } t = setTimeout(step, 55); }
+          else { ci--; setText(w.slice(0, ci)); if (ci <= 0) { deleting = false; pi = (pi + 1) % phrases.length; t = setTimeout(step, 400); return; } t = setTimeout(step, 28); }
+        };
+        t = setTimeout(step, 700);
+        return () => clearTimeout(t);
+      }, []);
+      return text;
+    }
+
+    // ---- data ----
+    const HERO_PHRASES = ["reply to Sarah and book a room","summarize this thread for me","fill out this signup form"];
+    const TICKER = ["Lives beside your cursor","Sees your screen","Acts on your say-so"];
+    const MODES = [
+      { id:1, kicker:"01 · Watch", title:"It observes.", panelTitle:"Watch", body:"Perch sits beside your cursor and reads the active app, your selection, and your recent moves — no prompts, no copy-paste, no context to re-explain." },
+      { id:2, kicker:"02 · Assist", title:"It suggests.", panelTitle:"Assist", body:"When it spots something it can do, it offers — a draft, a fill, a next step — right where you are. One keystroke to accept, one to wave it off." },
+      { id:3, kicker:"03 · Take over", title:"It acts.", panelTitle:"Take over", body:"Hand it a goal and Perch drives the cursor itself — clicking through multi-step work while you watch. Grab the mouse to pause it instantly." },
+    ];
+    const FEATURES = [
+      ["01","Reads your context.","Watches the active app, your selection, and recent actions — so it always knows what you're trying to do."],
+      ["02","Drafts in place.","Replies, messages, and docs written right where your cursor is — no window-hopping, no copy-paste."],
+      ["03","Fills the busywork.","Forms, fields, and the same five clicks you do every day — handled while you move on to something better."],
+      ["04","Runs multi-step tasks.","Give it a goal and it clicks all the way through — across apps, tabs, and screens — until it's done."],
+      ["05","Learns your patterns.","Adapts to how you actually work — your apps, your phrasing, your shortcuts — and it all stays on your machine."],
+      ["06","Hands control back.","Pause, correct, or take the wheel anytime — just touch the mouse and Perch steps aside."],
+    ];
+    const CONTROL_POINTS = ["Runs on-device by default","Every takeover needs your ok","Watches only what you allow","One hotkey kill switch","Nothing leaves without consent","See exactly what it saw"];
+    const CONTROL_STATS = [["⌘⇧␣","to summon",false],["on-device","by default",true],["100%","you approve",false],["3","modes",false]];
+    const ASCII_TEXTURE = `  perch ~ watching ·········· on it   ⌘⇧␣   01001   ░▒▓   → reply to sarah   book a room   ⏎   0110   ✓   perch ~ on it ········· drafting   ◇   10010
+$ perch ~ drafting ············· ✓   ◇   10010   ██  summarize this thread for me   →   ░░░░░   ⏎   00111   → fill out signup form   ⌘⇧␣   01001110   ▟▙   ✓
+  perch ~ acting ·········· filing expenses ✓   → fill out signup form   ⌘⇧␣   01001110   ◇   ▟▙   10101   across mail · calendar · browser   ░▒▓   ⏎
+→ reply to sarah   book a room   ⏎   0110   perch ~ watching ·· on it   00111   matched to categories ✓   ⌘⇧␣   ░░░░░   → next step   10010   ◇
+  $ perch ~ on it ··········· drafting a reply   10101   ██   summarize this thread for me   →   01001   ░▒▓   uploaded 6 receipts ✓   ⏎`;
+
+    // ---- ui bits ----
+    const Eyebrow = ({ children, style }) => (
+      <div style={{ display:"inline-flex", alignItems:"center", gap:8, border:`1px solid ${C.brandBorder}`, color:C.brandSoft, fontFamily:mono, fontSize:10, letterSpacing:"0.16em", textTransform:"uppercase", whiteSpace:"nowrap", padding:"7px 12px", borderRadius:6, ...style }}>{children}</div>
+    );
+    const SectionHead = ({ eyebrow, title }) => (
+      <div style={{ padding:"56px 32px 44px", borderBottom:`1px solid ${C.faint}`, textAlign:"center" }}>
+        <Eyebrow style={{ marginBottom:20 }}>{eyebrow}</Eyebrow>
+        <h2 style={{ fontWeight:400, fontSize:"clamp(24px,3.2vw,42px)", lineHeight:1, letterSpacing:"-0.02em", maxWidth:"20ch", margin:"0 auto" }}>{title}</h2>
+      </div>
+    );
+    const Dot = ({ color="#d8d4cb", size=9 }) => <span style={{ width:size, height:size, borderRadius:"50%", background:color }} />;
+    const Pulse = ({ speed=1.6, size=7 }) => <span style={{ width:size, height:size, borderRadius:"50%", background:C.brand, animation:`dotpulse ${speed}s ease-in-out infinite` }} />;
+    const KV = ({ k, v, vColor }) => <div style={{ display:"flex", justifyContent:"space-between", color:C.text2 }}><span style={{ color:C.sub }}>{k}</span><span style={{ color:vColor }}>{v}</span></div>;
+    const Step = ({ label, done=true }) => <div style={{ display:"flex", justifyContent:"space-between", color: done?C.text2:C.sub }}><span>{label}</span><span style={{ color: done?C.brandSoft:undefined }}>{done?"✓":"…"}</span></div>;
+    const Progress = ({ pct }) => <div style={{ height:4, borderRadius:3, background:"rgba(26,23,20,0.1)", marginTop:16, overflow:"hidden" }}><div style={{ width:pct+"%", height:"100%", background:C.brand }} /></div>;
+    const Btn = ({ href, ghost, children }) => (
+      <a href={href} className={ghost?"hv-ink":"hv-brand"} style={{ fontFamily:mono, fontSize:12, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", padding:"14px 24px", borderRadius:7, textDecoration:"none", ...(ghost ? { background:"transparent", color:C.ink, border:"1px solid rgba(26,23,20,0.22)" } : { background:C.brand, color:"#fff" }) }}>{children}</a>
+    );
+    const Texture = () => <pre aria-hidden style={{ position:"absolute", inset:0, margin:0, fontFamily:mono, fontSize:13, lineHeight:"16px", letterSpacing:1, color:"rgba(255,255,255,0.13)", whiteSpace:"pre", overflow:"hidden", pointerEvents:"none", userSelect:"none" }}>{ASCII_TEXTURE}</pre>;
+    const MockWindow = ({ title, dark, children }) => {
+      const d = dark ? "#3a3b44" : "#e0ddd4";
+      return (
+        <div style={{ width:"100%", border: dark?"none":`1px solid ${C.faintBorder}`, borderRadius:12, overflow:"hidden", background: dark?"#15161b":"#fff", boxShadow: dark?"0 18px 44px -26px rgba(26,23,20,0.55)":"0 18px 44px -28px rgba(26,23,20,0.4)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7, padding:"11px 14px", borderBottom: dark?"1px solid rgba(255,255,255,0.08)":`1px solid ${C.faint}`, background: dark?"#1c1d23":"#f3f1ec" }}>
+            <Dot color={d} /><Dot color={d} /><Dot color={d} />
+            <span style={{ marginLeft:8, fontFamily:mono, fontSize:11, color: dark?"#8f8d86":C.sub }}>{title}</span>
+          </div>
+          {children}
+        </div>
+      );
+    };
+
+    // ---- sections ----
+    function Hero() {
+      const cursor = useMemo(() => asciiCursor(22), []);
+      const typed = useTypewriter(HERO_PHRASES);
+      return (
+        <section style={{ position:"relative", background:C.bg, overflow:"hidden" }}>
+          <div aria-hidden style={{ position:"absolute", top:0, right:"4%", width:"46%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1, pointerEvents:"none" }}>
+            <div style={{ position:"relative", animation:"floaty 6s ease-in-out infinite" }}>
+              <pre style={{ margin:0, fontFamily:mono, fontSize:14, lineHeight:"12px", color:C.brand, whiteSpace:"pre", textShadow:"0 0 18px oklch(0.6 0.13 255 / 0.5)" }}>{cursor}</pre>
+            </div>
+            <div style={{ position:"absolute", top:"34%", left:"38%", width:340, display:"flex", alignItems:"center", gap:10, background:"#fff", border:`1.5px solid ${C.brand}`, borderRadius:10, padding:"7px 14px", boxShadow:"0 16px 38px -18px rgba(26,23,20,0.5)" }}>
+              <span style={{ flex:1, display:"flex", alignItems:"center", minWidth:0, fontFamily:mono, fontSize:13, color:C.ink }}>
+                <span style={{ whiteSpace:"nowrap", overflow:"hidden" }}>{typed}</span>
+                <span style={{ display:"inline-block", width:2, height:16, background:C.brand, marginLeft:2, flex:"none", animation:"caretblink 1s steps(1) infinite" }} />
+              </span>
+              <span style={{ flex:"none", color:C.sub, fontSize:14 }}>⏎</span>
+            </div>
+          </div>
+
+          <nav style={{ position:"relative", zIndex:2, padding:"18px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:`1px solid ${C.faint}` }}>
+            <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+              <div style={{ position:"relative", width:13, height:19 }}><div style={{ position:"absolute", inset:0, background:C.brand, clipPath:"polygon(0 0,0 88%,35% 67%,56% 100%,74% 95%,53% 63%,100% 63%)" }} /></div>
+              <span style={{ fontWeight:700, fontSize:17, letterSpacing:"-0.02em" }}>perch</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:22 }}>
+              <a href="#modes" style={{ fontFamily:mono, fontSize:12, color:"rgba(26,23,20,0.64)", textDecoration:"none", letterSpacing:"0.04em" }}>How it works</a>
+              <a href="#cta" className="hv-brand" style={{ fontFamily:mono, fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", background:C.brand, color:"#fff", padding:"9px 15px", borderRadius:6, textDecoration:"none", whiteSpace:"nowrap" }}>Download for Mac</a>
+            </div>
+          </nav>
+
+          <div style={{ position:"relative", zIndex:2, padding:"64px 28px 56px", textAlign:"left", maxWidth:560 }}>
+            <Eyebrow style={{ marginBottom:26 }}>✦ Now in private beta</Eyebrow>
+            <h1 style={{ fontWeight:400, fontSize:"clamp(34px,5.4vw,62px)", lineHeight:0.98, letterSpacing:"-0.025em", maxWidth:"15ch", margin:0 }}>A second cursor that does the work.</h1>
+            <p style={{ fontFamily:mono, fontSize:13, lineHeight:1.65, color:C.muted, maxWidth:"46ch", margin:"22px 0 0" }}>Perch lives next to your mouse. It watches what you're doing, offers a hand when it can help, and — on your say-so — takes the screen and finishes the task itself.</p>
+            <div style={{ display:"flex", gap:12, marginTop:34, flexWrap:"wrap" }}>
+              <Btn href="#cta">Download for Mac</Btn>
+              <Btn href="#demo" ghost>Watch it work</Btn>
+            </div>
+          </div>
+
+          <div style={{ position:"relative", overflow:"hidden", background:C.brand }}>
+            <div style={{ position:"relative", zIndex:2, padding:"16px 28px", display:"flex", alignItems:"center", justifyContent:"center", gap:"14px 28px", flexWrap:"wrap", fontSize:15, fontWeight:500, color:"#fff" }}>
+              {TICKER.map((t) => <span key={t} style={{ display:"inline-flex", alignItems:"center", gap:14 }}><span style={{ color:"rgba(255,255,255,0.65)" }}>▸</span>{t}</span>)}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Demo() {
+      const videoRef = useRef(null);
+      const [playing, setPlaying] = useState(false);
+      const onPlay = () => { setPlaying(true); const v = videoRef.current; if (v) { if (!v.src) v.src = "perch-demo.mp4"; v.play().catch(()=>{}); } };
+      return (
+        <section id="demo" style={{ background:C.bg, borderTop:`1px solid ${C.faint}` }}>
+          <div style={{ padding:"56px 32px 44px", borderBottom:`1px solid ${C.faint}`, textAlign:"center" }}>
+            <Eyebrow style={{ marginBottom:20 }}>▶ See it live</Eyebrow>
+            <h2 style={{ fontWeight:400, fontSize:"clamp(24px,3.2vw,42px)", lineHeight:1, letterSpacing:"-0.02em", margin:"0 auto" }}>Watch Perch work.</h2>
+          </div>
+          <div style={{ position:"relative", overflow:"hidden", background:C.brand, padding:"clamp(20px,2.4vw,32px) clamp(16px,2vw,28px)", boxShadow:"inset 0 0 0 1px oklch(0.45 0.16 255 / 0.4)" }}>
+            <Texture />
+            <div style={{ position:"relative", maxWidth:1180, margin:"0 auto", width:"100%", aspectRatio:"16 / 9", background:"#1a1714", borderRadius:11, overflow:"hidden", boxShadow:"0 22px 48px -22px rgba(0,0,0,0.65)" }}>
+              <video ref={videoRef} controls playsInline preload="metadata" poster="perch-poster.jpg" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", background:"#1a1714" }} />
+              {!playing && (
+                <button onClick={onPlay} aria-label="Play demo" style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:"none", cursor:"pointer", padding:0, display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(180deg, rgba(20,18,16,0.15), rgba(20,18,16,0.45))" }}>
+                  <span style={{ position:"relative", zIndex:2, display:"flex", alignItems:"center", justifyContent:"center", width:72, height:72, borderRadius:"50%", background:C.brand, boxShadow:"0 16px 40px -14px oklch(0.5 0.16 255)" }}>
+                    <span style={{ width:0, height:0, borderTop:"13px solid transparent", borderBottom:"13px solid transparent", borderLeft:"20px solid #fff", marginLeft:5 }} />
+                  </span>
+                  <span style={{ position:"absolute", bottom:18, left:"50%", transform:"translateX(-50%)", fontFamily:mono, fontSize:11, letterSpacing:"0.06em", color:C.sub }}>2 min · Perch in action</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Modes() {
+      const [mode, setMode] = useState(1);
+      const rowStyle = (m) => { const on = m.id === mode; return { padding:"28px 32px", borderBottom: m.id===3?undefined:`1px solid ${C.faint}`, cursor:"pointer", transition:"opacity .18s ease", borderLeft:`3px solid ${on?C.brand:"transparent"}`, background: on?"oklch(0.965 0.02 255)":"transparent", opacity: on?1:0.42 }; };
+      const active = MODES.find((m) => m.id === mode);
+      return (
+        <section id="modes" style={{ background:C.bg, borderTop:`1px solid ${C.faint}` }}>
+          <SectionHead eyebrow="◇ How it works" title="Three ways it shows up." />
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr" }}>
+            <div style={{ borderRight:`1px solid ${C.faint}` }}>
+              {MODES.map((m) => (
+                <div key={m.id} role="button" tabIndex={0} onClick={() => setMode(m.id)} style={rowStyle(m)}>
+                  <div style={{ fontFamily:mono, fontSize:10, letterSpacing:"0.18em", textTransform:"uppercase", whiteSpace:"nowrap", color:C.brandSoft }}>{m.kicker}</div>
+                  <h3 style={{ fontWeight:500, fontSize:"clamp(19px,2.2vw,26px)", lineHeight:1.08, letterSpacing:"-0.015em", margin:"12px 0 0" }}>{m.title}</h3>
+                  {m.id === mode && <p style={{ fontSize:13, lineHeight:1.6, color:C.muted2, margin:"14px 0 0", maxWidth:"42ch" }}>{m.body}</p>}
+                </div>
+              ))}
+            </div>
+            <div style={{ padding:"40px 36px", display:"flex", alignItems:"center" }}>
+              <div style={{ width:"100%", border:`1px solid ${C.faintBorder}`, borderRadius:12, padding:"24px 22px", background:"#fff", minHeight:248 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
+                  <div style={{ display:"flex", gap:6 }}><Dot/><Dot/><Dot/></div>
+                  <div style={{ fontFamily:mono, fontSize:10, letterSpacing:"0.14em", textTransform:"uppercase", color:C.brandSoft, whiteSpace:"nowrap" }}>{active.panelTitle}</div>
+                </div>
+                {mode === 1 && (
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, fontFamily:mono, fontSize:11, color:"rgba(26,23,20,0.5)", marginBottom:14 }}><Pulse/> watching</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:9, fontFamily:mono, fontSize:12 }}>
+                      <KV k="active app" v="Mail.app" /><KV k="selection" v="2 lines" /><KV k="recent" v="copied an address" /><KV k="intent" v="drafting a reply" vColor={C.brandSoft} />
+                    </div>
+                  </div>
+                )}
+                {mode === 2 && (
+                  <div>
+                    <div style={{ fontFamily:mono, fontSize:11, color:C.sub, marginBottom:12 }}>Perch noticed you're replying to Sarah —</div>
+                    <div style={{ border:`1px solid ${C.brandBorderStrong}`, borderRadius:10, padding:"14px 15px", background:"rgba(26,23,20,0.03)" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}><span style={{ width:6, height:6, borderRadius:"50%", background:C.brandText }} /><span style={{ width:6, height:6, borderRadius:"50%", background:C.brandText }} /><span style={{ fontFamily:mono, fontSize:11, color:C.ink }}>Draft a reply?</span></div>
+                      <div style={{ fontSize:13, lineHeight:1.5, color:C.text2 }}>"Thanks Sarah — Tuesday at 2 works for me. I'll send a calendar invite shortly."</div>
+                    </div>
+                    <div style={{ display:"flex", gap:14, marginTop:12, fontFamily:mono, fontSize:11 }}><span style={{ color:C.brandSoft }}>⏎ accept</span><span style={{ color:C.sub }}>esc dismiss</span></div>
+                  </div>
+                )}
+                {mode === 3 && (
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, fontFamily:mono, fontSize:11, color:C.brandSoft, marginBottom:14 }}><Pulse speed={1.2}/> Perch is driving — “file last week's expenses”</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:9, fontFamily:mono, fontSize:12 }}>
+                      <Step label="opened expense portal" /><Step label="uploaded 6 receipts" /><Step label="matched to categories" /><Step label="awaiting your submit" done={false} />
+                    </div>
+                    <Progress pct={75} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Capabilities() {
+      return (
+        <section id="features" style={{ background:C.bg, borderTop:`1px solid ${C.faint}` }}>
+          <SectionHead eyebrow="⊞ What it can do" title="Less busywork, more you." />
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)" }}>
+            {FEATURES.map(([n, title, body], i) => (
+              <div key={n} className="hv-row" style={{ padding:"30px 26px", borderRight: (i%3)<2?`1px solid ${C.faint}`:undefined, borderBottom: i<3?`1px solid ${C.faint}`:undefined }}>
+                <div style={{ fontFamily:mono, fontSize:12, letterSpacing:"0.22em", color:C.brandSoft, marginBottom:22 }}>[ {n} ]</div>
+                <h3 style={{ fontWeight:500, fontSize:20, lineHeight:1.12, letterSpacing:"-0.012em", marginBottom:14 }}>{title}</h3>
+                <p style={{ fontSize:13, lineHeight:1.6, color:C.muted2 }}>{body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function Control() {
+      return (
+        <section id="control" style={{ background:C.bg, borderTop:`1px solid ${C.faint}` }}>
+          <div style={{ padding:"54px 32px 48px", borderBottom:`1px solid ${C.faint}`, textAlign:"center" }}>
+            <div style={{ fontFamily:mono, fontSize:10, letterSpacing:"0.16em", textTransform:"uppercase", color:C.brandSoft, marginBottom:18 }}>You're always in charge</div>
+            <h2 style={{ fontWeight:400, fontSize:"clamp(22px,2.8vw,36px)", lineHeight:1.05, letterSpacing:"-0.02em", maxWidth:"24ch", margin:"0 auto 32px" }}>It only ever does what you let it.</h2>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"11px 48px", maxWidth:680, margin:"0 auto", textAlign:"left", fontFamily:mono, fontSize:12.5, lineHeight:1.5, color:"rgba(26,23,20,0.72)" }}>
+              {CONTROL_POINTS.map((p) => <div key={p} style={{ display:"flex", gap:10 }}><span style={{ color:C.brandText }}>→</span>{p}</div>)}
+            </div>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)" }}>
+            {CONTROL_STATS.map(([big, label, brand], i) => (
+              <div key={label} style={{ padding:"34px 16px", borderRight: i<3?`1px solid ${C.faint}`:undefined, textAlign:"center" }}>
+                <div style={{ fontWeight:400, fontSize:"clamp(20px,2.4vw,30px)", letterSpacing:"-0.02em", color: brand?C.brandSoft:undefined }}>{big}</div>
+                <div style={{ fontFamily:mono, fontSize:10, letterSpacing:"0.12em", textTransform:"uppercase", color:C.sub, marginTop:8 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function CTA() {
+      const [email, setEmail] = useState("");
+      const [joined, setJoined] = useState(false);
+      return (
+        <section id="cta" style={{ position:"relative", background:C.brand, color:"#fff", overflow:"hidden", borderTop:`1px solid ${C.faint}` }}>
+          <Texture />
+          <div style={{ position:"relative", zIndex:2, padding:"72px 32px", textAlign:"center" }}>
+            <h2 style={{ fontWeight:400, fontSize:"clamp(26px,3.6vw,48px)", lineHeight:1, letterSpacing:"-0.02em" }}>Give your cursor a sidekick.</h2>
+            <p style={{ fontFamily:mono, fontSize:12.5, lineHeight:1.6, color:"rgba(255,255,255,0.85)", maxWidth:"46ch", margin:"18px auto 0" }}>Free during the private beta. macOS 13+. Takes about a minute to set up.</p>
+            <form onSubmit={(e) => { e.preventDefault(); setJoined(true); }} style={{ display:"flex", gap:10, maxWidth:440, margin:"32px auto 0", flexWrap:"wrap", justifyContent:"center" }}>
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" style={{ flex:1, minWidth:220, fontFamily:mono, fontSize:13, padding:"13px 16px", borderRadius:7, border:"1px solid rgba(10,10,13,0.35)", background:"rgba(255,255,255,0.16)", color:"#fff", outline:"none" }} />
+              <button type="submit" className="hv-dark" style={{ fontFamily:mono, fontSize:12, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", background:"#1a1714", color:"#faf8f3", padding:"13px 24px", borderRadius:7, border:"none", cursor:"pointer" }}>Get the beta</button>
+            </form>
+            {joined && <div style={{ fontFamily:mono, fontSize:12, marginTop:16, color:"#fff" }}>✦ You're in — check your inbox for the download link.</div>}
+          </div>
+        </section>
+      );
+    }
+
+    function Footer() {
+      return (
+        <footer style={{ position:"relative", background:C.bg, backgroundImage:"radial-gradient(rgba(26,23,20,0.1) 1px,transparent 1px)", backgroundSize:"22px 22px", borderTop:`1px solid ${C.faint}`, padding:"38px 32px 24px", overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:18, fontFamily:mono, fontSize:12, color:C.sub, flexWrap:"wrap" }}>
+            <span style={{ whiteSpace:"nowrap" }}>San Francisco · Remote-first</span><span style={{ color:"rgba(26,23,20,0.22)" }}>|</span><span>hello@perch.computer</span>
+          </div>
+          <div style={{ textAlign:"center", padding:"10px 0 4px" }}><span style={{ fontWeight:800, fontSize:"clamp(72px,18vw,220px)", letterSpacing:"-0.05em", lineHeight:0.82, color:C.ink }}>perch</span></div>
+          <div style={{ height:1, background:"rgba(26,23,20,0.13)", margin:"6px 0 16px" }} />
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, flexWrap:"wrap" }}>
+            <span style={{ fontFamily:mono, fontSize:11, color:C.sub, whiteSpace:"nowrap" }}>© 2026 Perch Computer, Inc.</span>
+            <a href="#" style={{ fontFamily:mono, fontSize:11, color:C.sub, textDecoration:"none" }}>Privacy &amp; Terms</a>
+          </div>
+        </footer>
+      );
+    }
+
+    function App() {
+      return (
+        <div style={{ width:"100%", background:C.bg, color:C.ink, fontFamily:"'Archivo',sans-serif", overflowX:"hidden", padding:"0 24px" }}>
+          <div style={{ maxWidth:1240, margin:"0 auto", borderLeft:`1px solid ${C.faint}`, borderRight:`1px solid ${C.faint}` }}>
+            <Hero /><Demo /><Modes /><Capabilities /><Control /><CTA /><Footer />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

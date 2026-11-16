@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes caretBlink { 0%,49%{border-color:#0a84ff;} 50%,100%{border-color:transparent;} }
+  @keyframes caretBlinkDark { 0%,49%{border-color:#1d1c1d;} 50%,100%{border-color:transparent;} }
+</style>
+</helmet>
+<div style="position:relative; width:100%; height:100vh; background:transparent; display:flex; align-items:center; justify-content:center; overflow:hidden; font-family:'Inter',-apple-system,sans-serif;">
+  <div id="atlas-stage" style="position:relative; width:1200px; height:800px; flex:none; transform-origin:center center;">
+
+    <!-- ============ SLACK APP (left) ============ -->
+    <div id="slack" style="position:absolute; top:70px; left:40px; width:700px; height:648px; background:#ffffff; border-radius:14px; box-shadow:0 30px 70px rgba(0,0,0,0.28); overflow:hidden; display:flex; flex-direction:column; opacity:0; transform:translateX(-70px) scale(0.98); transition:opacity .5s ease, transform .6s cubic-bezier(.4,0,.2,1);">
+      <div style="height:34px; background:#350d36; display:flex; align-items:center; padding:0 14px; gap:8px; flex:none;">
+        <span style="width:11px; height:11px; border-radius:50%; background:#ff5f57;"></span><span style="width:11px; height:11px; border-radius:50%; background:#febc2e;"></span><span style="width:11px; height:11px; border-radius:50%; background:#28c840;"></span>
+        <span style="color:#cdb9ce; font-size:12.5px; margin-left:10px;">Acme HQ — Slack</span>
+      </div>
+      <div style="flex:1; display:flex; min-height:0;">
+        <div style="width:188px; background:#3f0e40; flex:none; padding:14px 0; color:#cdb9ce; font-size:14px;">
+          <div style="padding:0 16px 12px; color:#fff; font-weight:700; font-size:16px; border-bottom:1px solid #532753; margin-bottom:10px;">Acme HQ</div>
+          <div style="padding:0 16px 8px; font-size:12.5px; color:#9b7f9d;">Channels</div>
+          <div style="padding:6px 16px;"># general</div>
+          <div style="padding:6px 16px; background:#1164a3; color:#fff; font-weight:600;"># team</div>
+          <div style="padding:6px 16px;"># random</div>
+          <div style="padding:6px 16px;"># design</div>
+          <div style="padding:6px 16px;"># engineering</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; min-width:0; color:#1d1c1d;">
+          <div style="padding:14px 20px; border-bottom:1px solid #e8e8e8; flex:none;"><div style="font-weight:700; font-size:18px;"># team</div><div style="color:#8d8d8d; font-size:13px;">12 members</div></div>
+          <div style="flex:1; padding:18px 20px; display:flex; flex-direction:column; justify-content:flex-end; gap:16px; font-size:14.5px; min-height:0;">
+            <div style="display:flex; gap:11px;"><span style="width:36px; height:36px; border-radius:8px; background:#e8c07d; flex:none;"></span><div><span style="font-weight:700;">Maya Chen</span> <span style="color:#9b9b9b; font-size:12.5px;">9:42 AM</span><div style="margin-top:2px;">Morning team! Anything blocking before standup?</div></div></div>
+            <div style="display:flex; gap:11px;"><span style="width:36px; height:36px; border-radius:8px; background:#9bc4e2; flex:none;"></span><div><span style="font-weight:700;">Dev Patel</span> <span style="color:#9b9b9b; font-size:12.5px;">9:48 AM</span><div style="margin-top:2px;">All good on my end 👍</div></div></div>
+            <div id="slackPosted" style="display:flex; gap:11px; opacity:0; transform:translateY(10px); transition:opacity .45s ease, transform .45s ease;">
+              <span style="width:36px; height:36px; border-radius:8px; background:#10a37f; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:13px;">A</span>
+              <div><span style="font-weight:700;">Tine</span> <span style="color:#9b9b9b; font-size:12.5px;">10:01 AM</span> <span style="background:#e8f5ee; color:#1a7f5a; font-size:11px; padding:1px 6px; border-radius:4px; font-weight:600;">via Tine</span><div style="margin-top:2px;">Standup moved to 10:00 AM tomorrow <span style="color:#1264a3; background:#e8f0fb; border-radius:3px; padding:0 3px;">@sarah</span></div></div>
+            </div>
+          </div>
+          <div style="padding:0 20px 18px; flex:none;">
+            <div style="border:1px solid #d6d6d6; border-radius:8px; padding:12px 14px; min-height:46px; display:flex; align-items:center; justify-content:space-between;">
+              <div style="overflow:hidden;"><span id="slackText" style="display:inline-block; white-space:nowrap; overflow:hidden; vertical-align:bottom; border-right:2px solid #0a84ff; width:0; animation:caretBlinkDark .85s steps(1) infinite; font-size:15px; color:#1d1c1d;"></span></div>
+              <span style="width:30px; height:30px; border-radius:6px; background:#007a5a; flex:none; display:flex; align-items:center; justify-content:center;"><svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M2 9 L16 2 L9 16 L8 10 Z" fill="#fff"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ NOTES APP (left) ============ -->
+    <div id="notes" style="position:absolute; top:70px; left:40px; width:700px; height:648px; background:#ffffff; border-radius:14px; box-shadow:0 30px 70px rgba(0,0,0,0.28); overflow:hidden; display:flex; flex-direction:column; opacity:0; transform:translateX(-70px) scale(0.98); transition:opacity .5s ease, transform .6s cubic-bezier(.4,0,.2,1);">
+      <div style="height:40px; background:#f3c44b; display:flex; align-items:center; padding:0 14px; gap:8px; flex:none;">
+        <span style="width:11px; height:11px; border-radius:50%; background:#ff5f57;"></span><span style="width:11px; height:11px; border-radius:50%; background:#febc2e;"></span><span style="width:11px; height:11px; border-radius:50%; background:#28c840;"></span>
+        <span style="color:#7a5d00; font-size:12.5px; margin-left:10px; font-weight:600;">Notes</span>
+      </div>
+      <div style="flex:1; display:flex; min-height:0;">
+        <div style="width:210px; background:#fbf7ec; flex:none; border-right:1px solid #efe6cf; padding:14px 0;">
+          <div style="padding:0 16px 10px; color:#a98f3e; font-size:12.5px; font-weight:600;">Recents</div>
+          <div style="padding:10px 16px; background:#f6e6a8; border-left:3px solid #e0ac1f;">
+            <div style="font-weight:700; font-size:14px; color:#3a3322;">Morning Standup — Agenda</div>
+            <div style="color:#9b8a55; font-size:12px; margin-top:2px;">June 17 · 10:01 AM</div>
+          </div>
+          <div style="padding:10px 16px;"><div style="font-weight:600; font-size:14px; color:#6b6450;">Sprint 14 retro</div><div style="color:#b3a877; font-size:12px;">Jun 14</div></div>
+          <div style="padding:10px 16px;"><div style="font-weight:600; font-size:14px; color:#6b6450;">Release checklist</div><div style="color:#b3a877; font-size:12px;">Jun 12</div></div>
+        </div>
+        <div style="flex:1; padding:26px 30px; color:#2a2618; min-width:0; overflow:hidden;">
+          <div style="color:#b3a877; font-size:13px; text-align:center; margin-bottom:14px;">June 17, 2026 at 10:01 AM</div>
+          <div id="notesReveal" style="opacity:0; transition:opacity .55s ease;">
+            <div style="font-size:24px; font-weight:700; margin-bottom:6px;">Morning Standup — Agenda</div>
+            <div style="font-size:15px; color:#6b6450; margin-bottom:18px;">Tuesday team sync · 10:00 AM</div>
+            <div style="font-size:16px; line-height:2;">
+              <div>1.&nbsp;&nbsp;Review yesterday's blockers</div>
+              <div>2.&nbsp;&nbsp;Sprint 14 progress &amp; demo readiness</div>
+              <div>3.&nbsp;&nbsp;GitHub bug triage — 3 open P1s</div>
+              <div>4.&nbsp;&nbsp;Release timeline for v2.1</div>
+            </div>
+            <div style="margin-top:22px; padding:16px 18px; background:#fbf7ec; border-radius:12px; border:1px solid #efe6cf; font-size:15px; line-height:1.6; color:#4a432e;">
+              <span style="font-weight:700;">Summary:&nbsp;</span>Standup is moving to 10:00 AM tomorrow. Priority is clearing the three P1 bugs before the v2.1 cut. Dev is unblocked; Maya will share the demo build.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BROWSER APP (left) ============ -->
+    <div id="browser" style="position:absolute; top:70px; left:40px; width:700px; height:648px; background:#ffffff; border-radius:14px; box-shadow:0 30px 70px rgba(0,0,0,0.28); overflow:hidden; display:flex; flex-direction:column; opacity:0; transform:translateX(-70px) scale(0.98); transition:opacity .5s ease, transform .6s cubic-bezier(.4,0,.2,1);">
+      <div style="height:74px; background:#f4f3f3; flex:none; border-bottom:1px solid #e2e1e1;">
+        <div style="height:38px; display:flex; align-items:center; padding:0 14px; gap:8px;">
+          <span style="width:11px; height:11px; border-radius:50%; background:#ff5f57;"></span><span style="width:11px; height:11px; border-radius:50%; background:#febc2e;"></span><span style="width:11px; height:11px; border-radius:50%; background:#28c840;"></span>
+          <div style="margin-left:14px; background:#fff; border:1px solid #ddd; border-radius:7px 7px 0 0; padding:7px 16px; font-size:12.5px; color:#444; display:flex; align-items:center; gap:8px;">Markets — Search<span style="color:#aaa;">✕</span></div>
+        </div>
+        <div style="display:flex; align-items:center; padding:0 16px; gap:10px;">
+          <span style="color:#9aa0a6;">&#8592;</span><span style="color:#d0d0d0;">&#8594;</span>
+          <div style="flex:1; background:#fff; border:1px solid #dadce0; border-radius:18px; padding:6px 16px; font-size:13.5px; color:#5f6368; display:flex; align-items:center; gap:8px;"><span style="color:#9aa0a6;">&#128269;</span><span id="browserText" style="display:inline-block; white-space:nowrap; overflow:hidden; vertical-align:bottom; border-right:2px solid #1d1c1d; width:0; animation:caretBlinkDark .85s steps(1) infinite;"></span></div>
+        </div>
+      </div>
+      <div style="flex:1; padding:24px 30px; min-width:0; overflow:hidden; color:#202124;">
+        <div id="browserResults" style="opacity:0; transition:opacity .55s ease;">
+          <div style="font-size:13px; color:#70757a; margin-bottom:14px;">Markets · Today, June 17 · 4:00 PM ET close</div>
+          <div style="display:flex; gap:14px; margin-bottom:22px;">
+            <div style="flex:1; border:1px solid #e6e6e6; border-radius:12px; padding:14px 16px;"><div style="font-size:13px; color:#70757a;">NASDAQ</div><div style="font-size:22px; font-weight:700; margin:3px 0;">18,342.30</div><div style="color:#1a7f37; font-weight:600; font-size:14px;">▲ +1.24%</div></div>
+            <div style="flex:1; border:1px solid #e6e6e6; border-radius:12px; padding:14px 16px;"><div style="font-size:13px; color:#70757a;">S&amp;P 500</div><div style="font-size:22px; font-weight:700; margin:3px 0;">5,718.04</div><div style="color:#1a7f37; font-weight:600; font-size:14px;">▲ +0.86%</div></div>
+            <div style="flex:1; border:1px solid #e6e6e6; border-radius:12px; padding:14px 16px;"><div style="font-size:13px; color:#70757a;">Dow Jones</div><div style="font-size:22px; font-weight:700; margin:3px 0;">42,011.59</div><div style="color:#1a7f37; font-weight:600; font-size:14px;">▲ +0.47%</div></div>
+          </div>
+          <div style="font-size:13px; color:#70757a; margin-bottom:8px;">Top results</div>
+          <div style="font-size:14.5px; line-height:1.5; margin-bottom:10px;"><span style="color:#1a0dab;">MarketWatch — U.S. stocks close higher as tech rallies</span><div style="color:#4d5156;">The Nasdaq led major indexes on strong chip-sector earnings…</div></div>
+          <div style="font-size:14.5px; line-height:1.5;"><span style="color:#1a0dab;">Bloomberg — VIX eases to 14 as risk appetite returns</span><div style="color:#4d5156;">Volatility fell to a six-week low amid steady Treasury yields…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Dynamic Island ============ -->
+    <div id="island" style="position:absolute; top:18px; left:430px; width:340px; height:44px; background:#0a0a0c; border-radius:22px; display:flex; align-items:center; padding:0 16px; box-shadow:0 12px 32px rgba(0,0,0,0.45); opacity:0; transform:translateY(-40px) scale(0.94); transition:opacity .4s ease, transform .5s cubic-bezier(.34,1.4,.5,1); z-index:14;">
+      <svg width="18" height="16" viewBox="0 0 20 18" fill="none" style="flex:none;"><rect x="1" y="1" width="18" height="16" rx="3" stroke="#9a9a9e" stroke-width="1.6"/><line x1="7" y1="1" x2="7" y2="17" stroke="#9a9a9e" stroke-width="1.6"/></svg>
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:10px;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#2fcf4e; flex:none;"></span>
+        <span style="color:#ffffff; font-weight:600; font-size:16px;">Tine</span>
+      </div>
+      <svg width="16" height="10" viewBox="0 0 18 11" fill="none" style="flex:none;"><path d="M1 1.5 L9 9 L17 1.5" stroke="#cfcfd2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- ============ Atlas panel (island → chat → docked) ============ -->
+    <div id="panel" style="position:absolute; top:18px; left:430px; width:340px; height:44px; background:#1c1c1e; border-radius:22px; box-shadow:0 30px 70px rgba(0,0,0,0.45); overflow:hidden; opacity:0; z-index:15; transition:top .6s cubic-bezier(.5,0,.2,1), left .6s cubic-bezier(.5,0,.2,1), width .6s cubic-bezier(.5,0,.2,1), height .6s cubic-bezier(.5,0,.2,1), border-radius .6s ease, opacity .35s ease;">
+
+      <!-- EXPANDED content -->
+      <div id="expanded" style="position:absolute; inset:0; padding:24px 26px 22px; display:flex; flex-direction:column; opacity:0; transition:opacity .4s ease;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px; flex:none;">
+          <span style="width:11px; height:11px; border-radius:50%; background:#2fcf4e;"></span>
+          <span style="color:#fff; font-weight:700; font-size:21px;">Tine</span>
+          <span style="flex:1;"></span>
+          <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M12 3 L22 7 L12 11 L2 7 Z" stroke="#d6d6da" stroke-width="1.6" stroke-linejoin="round"/><path d="M18 9 V13.5 C18 15 15 16.5 12 16.5 C9 16.5 6 15 6 13.5 V9" stroke="#d6d6da" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="4.2" stroke="#d6d6da" stroke-width="1.6"/><g stroke="#d6d6da" stroke-width="1.6" stroke-linecap="round"><line x1="11" y1="1.5" x2="11" y2="4"/><line x1="11" y1="18" x2="11" y2="20.5"/><line x1="1.5" y1="11" x2="4" y2="11"/><line x1="18" y1="11" x2="20.5" y2="11"/></g></svg>
+        </div>
+        <div style="position:relative; display:flex; background:#2c2c2e; border-radius:11px; padding:4px; gap:4px; margin-bottom:22px; flex:none;">
+          <div id="tabIndicator" style="position:absolute; top:4px; bottom:4px; width:268px; left:276px; background:#0a84ff; border-radius:8px; z-index:0; transition:left .35s cubic-bezier(.5,0,.2,1);"></div>
+          <div id="labelActivity" style="position:relative; z-index:1; flex:1; text-align:center; padding:11px 0; font-weight:600; font-size:16px; color:#bcbcc0; transition:color .3s ease;">Activity</div>
+          <div id="labelChat" style="position:relative; z-index:1; flex:1; text-align:center; padding:11px 0; font-weight:600; font-size:16px; color:#fff; transition:color .3s ease;">Chat</div>
+        </div>
+        <div style="position:relative; flex:1; overflow:hidden;">
+          <div id="chatBody" style="position:absolute; inset:0; display:flex; flex-direction:column; opacity:0; transition:opacity .3s ease;">
+            <div style="display:flex; align-items:center; margin-bottom:16px; flex:none;">
+              <span style="color:#fff; font-weight:700; font-size:19px;">AI Chat</span>
+              <span style="flex:1;"></span>
+              <div style="display:flex; gap:16px; color:#9a9a9e;">
+                <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M13 2 L18 7 L7 18 L2 18 L2 13 Z" stroke="#9a9a9e" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 10 A7 7 0 1 1 5 15" stroke="#9a9a9e" stroke-width="1.6" stroke-linecap="round" fill="none"/><path d="M2 6 L3 10 L7 9" stroke="#9a9a9e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+              </div>
+            </div>
+            <div style="flex:1; overflow:hidden; display:flex; flex-direction:column; gap:13px; font-size:15px; line-height:1.5;">
+              <div style="color:#e6e6e9;">Hi! I can take actions across your apps — Slack, Notes, the web and more. What should I do?</div>
+              <div style="align-self:flex-end; max-width:80%; background:#2c2c2e; color:#f2f2f4; padding:11px 15px; border-radius:16px;">let's get the team's morning sorted</div>
+              <div style="color:#8a8a8e; display:flex; align-items:center; gap:7px; font-size:14.5px;"><span>&rsaquo;</span> Worked</div>
+              <div style="color:#e6e6e9;">On it. Tell me each task and I'll handle it.</div>
+            </div>
+            <div style="background:#2c2c2e; border-radius:16px; padding:14px 18px; margin-top:12px; flex:none;">
+              <div style="display:flex; align-items:center; min-height:22px; margin-bottom:14px;">
+                <span id="askText" style="display:inline-block; white-space:nowrap; overflow:hidden; border-right:2px solid #0a84ff; width:0; animation:caretBlink .85s steps(1) infinite; font-size:16px; color:#f2f2f4;"></span>
+              </div>
+              <div style="display:flex; align-items:center;">
+                <span style="color:#8a8a8e; font-size:24px; line-height:1;">+</span>
+                <span style="flex:1;"></span>
+                <span style="width:36px; height:36px; border-radius:50%; background:#0a84ff; display:flex; align-items:center; justify-content:center;">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 14 V4 M4 9 L9 4 L14 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div id="activityBody" style="position:absolute; inset:0; overflow:hidden; opacity:0; transition:opacity .3s ease;">
+            <div id="logInner" style="font-family:ui-monospace,'SF Mono',Menlo,monospace; font-size:13px; line-height:1.55; color:#e8e8ea; transform:translateY(40px); transition:transform .8s cubic-bezier(.4,0,.2,1);">
+              <div style="display:flex; gap:10px; padding:3px 0;"><span style="color:#9a9a9e; flex:none; width:58px;">16:20:14</span><span style="flex:none;"><svg width="15" height="15" viewBox="0 0 16 18" fill="none"><rect x="3" y="1" width="10" height="16" rx="5" stroke="#fff" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="7" stroke="#fff" stroke-width="1.5"/></svg></span><span style="word-break:break-word;"><b>CLICK</b>&nbsp; <span style="color:#cfcfd2;">Tine</span> &rsaquo; —</span></div>
+              <div style="display:flex; gap:10px; padding:3px 0;"><span style="color:#9a9a9e; flex:none; width:58px;">16:20:22</span><span style="flex:none;"><svg width="15" height="11" viewBox="0 0 22 14" fill="none"><rect x="1" y="2" width="20" height="11" rx="2" stroke="#fff" stroke-width="1.4"/><g fill="#fff"><rect x="3.5" y="4.5" width="2" height="2"/><rect x="7" y="4.5" width="2" height="2"/><rect x="10.5" y="4.5" width="2" height="2"/><rect x="14" y="4.5" width="2" height="2"/><rect x="5.5" y="8.5" width="11" height="2"/></g></svg></span><span style="word-break:break-word;"><b>TYPE</b>&nbsp; <span style="color:#cfcfd2;">Tine</span> &rsaquo; task received</span></div>
+              <div style="display:flex; gap:10px; padding:3px 0;"><span style="color:#9a9a9e; flex:none; width:58px;">16:20:30</span><span style="flex:none;"><svg width="15" height="13" viewBox="0 0 22 14" fill="none"><path d="M1 7 C5 1 17 1 21 7 C17 13 5 13 1 7 Z" stroke="#9a9a9e" stroke-width="1.5"/><circle cx="11" cy="7" r="2.6" fill="#9a9a9e"/></svg></span><span style="word-break:break-word;"><span style="color:#9a9a9e;">Agent</span> &rsaquo; planning steps</span></div>
+              <div style="display:flex; gap:10px; padding:3px 0;"><span style="color:#9a9a9e; flex:none; width:58px;">16:20:39</span><span style="flex:none;"><svg width="15" height="15" viewBox="0 0 16 18" fill="none"><rect x="3" y="1" width="10" height="16" rx="5" stroke="#fff" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="7" stroke="#fff" stroke-width="1.5"/></svg></span><span style="word-break:break-word;"><b>CLICK</b>&nbsp; <span style="color:#cfcfd2;">Apps</span> &rsaquo; launching</span></div>
+              <div style="display:flex; gap:10px; padding:3px 0;"><span style="color:#9a9a9e; flex:none; width:58px;">16:20:41</span><span style="flex:none;"><svg width="15" height="13" viewBox="0 0 22 14" fill="none"><path d="M1 7 C5 1 17 1 21 7 C17 13 5 13 1 7 Z" stroke="#9a9a9e" stroke-width="1.5"/><circle cx="11" cy="7" r="2.6" fill="#9a9a9e"/></svg></span><span style="word-break:break-word;"><span style="color:#9a9a9e;">Agent</span> &rsaquo; ready to act</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPACT docked widget -->
+      <div id="compact" style="position:absolute; inset:0; padding:20px; display:flex; flex-direction:column; opacity:0; transition:opacity .4s ease;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;"><span style="width:9px; height:9px; border-radius:50%; background:#2fcf4e;"></span><span style="color:#fff; font-weight:700; font-size:16px;">Tine</span><span style="flex:1;"></span><svg width="14" height="9" viewBox="0 0 18 11" fill="none"><path d="M1 9 L9 1.5 L17 9" stroke="#cfcfd2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div style="position:relative; height:46px; margin-bottom:18px;">
+          <div id="cmpWorking" style="position:absolute; inset:0; display:flex; align-items:center; gap:12px; transition:opacity .35s ease;">
+            <span style="width:22px; height:22px; border-radius:50%; border:2.5px solid #2c2c2e; border-top-color:#0a84ff; animation:spin 1s linear infinite; flex:none;"></span>
+            <span id="cmpWorkingText" style="color:#fff; font-weight:600; font-size:16px;">Working…</span>
+          </div>
+          <div id="cmpDone" style="position:absolute; inset:0; display:flex; align-items:center; gap:12px; opacity:0; transition:opacity .35s ease;">
+            <span style="width:22px; height:22px; border-radius:50%; background:#1f8a5b; flex:none; display:flex; align-items:center; justify-content:center;"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5 L6 11 L11.5 3.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span id="cmpDoneText" style="color:#fff; font-weight:600; font-size:16px;">Done</span>
+          </div>
+        </div>
+        <div id="cmpList" style="background:#2c2c2e; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:11px; font-size:14px; color:#cfcfd2;"></div>
+        <span style="flex:1;"></span>
+        <div style="background:#2c2c2e; border-radius:14px; padding:13px 16px; color:#8a8a8e; font-size:15px;">Ask AI</div>
+      </div>
+    </div>
+
+    <!-- ============ cursor ============ -->
+    <div id="cursor" style="position:absolute; top:0; left:0; opacity:0; transform:translate(1050px,720px) scale(1); transition:transform .8s cubic-bezier(.4,0,.2,1), opacity .3s ease; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35)); z-index:30;">
+      <svg width="26" height="32" viewBox="0 0 26 32" fill="none"><path d="M3 2 L3 24 L9.5 18.5 L13.5 27.5 L17 26 L13 17 L22 17 Z" fill="#0a84ff" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    this.fit = () => {
+      const el = document.getElementById('atlas-stage');
+      if (!el) return;
+      const w = window.innerWidth || document.documentElement.clientWidth;
+      const h = window.innerHeight || document.documentElement.clientHeight;
+      const s = Math.min(w / 1200, h / 800);
+      if (s > 0) el.style.transform = 'scale(' + s + ')';
+    };
+    this.fit();
+    requestAnimationFrame(this.fit);
+    setTimeout(this.fit, 60);
+    setTimeout(this.fit, 250);
+    window.addEventListener('resize', this.fit);
+    window.addEventListener('load', this.fit);
+    try { this._ro = new ResizeObserver(this.fit); this._ro.observe(document.documentElement); } catch(e){}
+
+    this.ids = ['island','panel','expanded','compact','tabIndicator','labelActivity','labelChat',
+      'chatBody','activityBody','logInner','askText','slack','slackText','slackPosted',
+      'notes','notesReveal','browser','browserText','browserResults','cursor','cmpWorking','cmpDone'];
+    this.trans = {};
+    this.ids.forEach(id => { const e = this.S(id); if (e) this.trans[id] = e.style.transition; });
+
+    this.buildTimeline();
+    this.timers = [];
+    this.start();
+  }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.fit);
+    if (this._raf) cancelAnimationFrame(this._raf);
+    (this.timers || []).forEach(clearTimeout);
+  }
+
+  S(id){ return document.getElementById(id); }
+  css(id, o){ const e = this.S(id); if (!e) return; for (const k in o) e.style[k] = o[k]; }
+  move(x,y){ this.cx=x; this.cy=y; this.css('cursor', {opacity:'1', transform:`translate(${x}px,${y}px) scale(1)`}); }
+  press(){
+    const e = this.S('cursor'); if(!e) return;
+    const t = `translate(${this.cx}px,${this.cy}px)`;
+    e.style.transition = 'transform .12s ease';
+    e.style.transform = t + ' scale(0.82)';
+    this.timers.push(setTimeout(()=>{ e.style.transform = t + ' scale(1)';
+      this.timers.push(setTimeout(()=>{ e.style.transition = this.trans['cursor']; }, 150)); }, 130));
+  }
+  type(id, text){
+    const e = this.S(id); if(!e) return;
+    e.textContent = text;
+    e.style.transition = 'none'; e.style.width = '0px'; void e.offsetWidth;
+    e.style.transition = 'width 1.0s steps(30, end)';
+    e.style.width = e.scrollWidth + 'px';
+  }
+  clearType(id){ const e=this.S(id); if(!e) return; e.style.transition='none'; e.style.width='0px'; void e.offsetWidth; e.style.transition=this.trans[id]; }
+  workOn(t){ this.css('cmpWorking',{opacity:'1'}); this.css('cmpDone',{opacity:'0'}); const w=this.S('cmpWorkingText'); if(w) w.textContent=t; const list=this.S('cmpList'); if(list) list.innerHTML=''; }
+  done(t, items){
+    const d=this.S('cmpDoneText'); if(d) d.textContent=t;
+    const list=this.S('cmpList'); if(list) list.innerHTML = items.map(i=>`<div style="display:flex;gap:9px;align-items:center;"><span style="color:#1f8a5b;">&#10003;</span> ${i}</div>`).join('');
+    this.css('cmpWorking',{opacity:'0'}); this.css('cmpDone',{opacity:'1'});
+  }
+  centerChat(){
+    this.css('panel', {opacity:'1', top:'18px', left:'300px', width:'600px', height:'600px', borderRadius:'26px'});
+    this.css('expanded',{opacity:'1'}); this.css('compact',{opacity:'0'});
+    this.css('chatBody',{opacity:'1'}); this.css('activityBody',{opacity:'0'});
+    this.css('tabIndicator',{left:'276px'}); this.css('labelChat',{color:'#fff'}); this.css('labelActivity',{color:'#bcbcc0'});
+    this.clearType('askText');
+  }
+  dock(workText){
+    this.css('panel', {top:'56px', left:'800px', width:'360px', height:'470px', borderRadius:'22px'});
+    this.css('expanded',{opacity:'0'}); this.css('compact',{opacity:'1'});
+    this.workOn(workText);
+  }
+  hideApp(id){ this.css(id, {opacity:'0', transform:'translateX(-70px) scale(0.98)'}); }
+  showApp(id){ this.css(id, {opacity:'1', transform:'translateX(0) scale(1)'}); }
+
+  applyStart(){
+    this.css('island',{opacity:'0', transform:'translateY(-40px) scale(0.94)'});
+    this.css('panel',{opacity:'0', top:'18px', left:'430px', width:'340px', height:'44px', borderRadius:'22px'});
+    this.css('expanded',{opacity:'0'}); this.css('compact',{opacity:'0'});
+    this.css('chatBody',{opacity:'0'}); this.css('activityBody',{opacity:'0'});
+    this.css('tabIndicator',{left:'276px'}); this.css('labelChat',{color:'#fff'}); this.css('labelActivity',{color:'#bcbcc0'});
+    this.css('logInner',{transform:'translateY(40px)'});
+    this.css('askText',{width:'0px'}); this.css('slackText',{width:'0px'}); this.css('browserText',{width:'0px'});
+    this.css('slackPosted',{opacity:'0', transform:'translateY(10px)'});
+    this.css('notesReveal',{opacity:'0'}); this.css('browserResults',{opacity:'0'});
+    ['slack','notes','browser'].forEach(a=>this.css(a,{opacity:'0', transform:'translateX(-70px) scale(0.98)'}));
+    this.css('cursor',{opacity:'0', transform:'translate(1050px,720px) scale(1)'});
+    this.css('cmpWorking',{opacity:'1'}); this.css('cmpDone',{opacity:'0'});
+  }
+  reset(){
+    this.ids.forEach(id=>{ const e=this.S(id); if(e) e.style.transition='none'; });
+    this.applyStart();
+    void document.body.offsetWidth;
+    this.ids.forEach(id=>{ const e=this.S(id); if(e) e.style.transition=this.trans[id]||''; });
+  }
+
+  buildTimeline(){
+    const T = []; const at=(s,fn)=>T.push({t:s*1000, fn});
+    // intro
+    at(0.4, ()=>{ this.css('island',{opacity:'1', transform:'translateY(0) scale(1)'}); });
+    at(1.2, ()=>{ this.move(600,40); });
+    at(2.7, ()=>{ this.press(); });
+    at(2.95,()=>{ this.css('island',{opacity:'0', transform:'translateY(0) scale(0.92)'}); this.css('panel',{opacity:'1'}); this.centerChat(); });
+    at(4.2, ()=>{ this.move(645,255); });
+    // activity glimpse
+    at(5.2, ()=>{ this.move(460,108); });
+    at(5.8, ()=>{ this.press(); this.css('tabIndicator',{left:'4px'}); this.css('labelActivity',{color:'#fff'}); this.css('labelChat',{color:'#bcbcc0'}); this.css('chatBody',{opacity:'0'}); this.css('activityBody',{opacity:'1'}); this.css('logInner',{transform:'translateY(0)'}); });
+    at(6.3, ()=>{ this.move(545,300); });
+    at(7.4, ()=>{ this.move(720,108); });
+    at(8.0, ()=>{ this.press(); this.css('tabIndicator',{left:'276px'}); this.css('labelChat',{color:'#fff'}); this.css('labelActivity',{color:'#bcbcc0'}); this.css('activityBody',{opacity:'0'}); this.css('chatBody',{opacity:'1'}); });
+    // TASK 1 — Slack
+    at(8.9, ()=>{ this.move(470,498); });
+    at(9.3, ()=>{ this.press(); });
+    at(9.5, ()=>{ this.type('askText', 'message #team: standup moved to 10am'); });
+    at(10.9,()=>{ this.move(852,540); });
+    at(11.2,()=>{ this.press(); this.clearType('askText'); });
+    at(11.45,()=>{ this.dock('Sending Slack message…'); });
+    at(11.9,()=>{ this.showApp('slack'); });
+    at(13.1,()=>{ this.type('slackText', 'Standup moved to 10:00 AM tomorrow @sarah'); });
+    at(14.4,()=>{ this.clearType('slackText'); this.css('slackPosted',{opacity:'1', transform:'translateY(0)'}); this.done('Message sent to #team', ['Opened Slack','Selected #team channel','Composed message','Tagged @sarah & posted']); });
+    // back to center → TASK 2 — Notes
+    at(16.2,()=>{ this.hideApp('slack'); this.centerChat(); });
+    at(17.1,()=>{ this.move(470,498); });
+    at(17.5,()=>{ this.press(); });
+    at(17.7,()=>{ this.type('askText', 'open Notes & add the standup agenda + summary'); });
+    at(19.2,()=>{ this.move(852,540); });
+    at(19.5,()=>{ this.press(); this.clearType('askText'); });
+    at(19.75,()=>{ this.dock('Updating Notes…'); });
+    at(20.2,()=>{ this.showApp('notes'); });
+    at(21.4,()=>{ this.css('notesReveal',{opacity:'1'}); });
+    at(22.4,()=>{ this.done('Notes updated', ['Opened Notes','Created “Standup Agenda”','Added 4 agenda items','Wrote summary']); });
+    // back to center → TASK 3 — Browser
+    at(24.2,()=>{ this.hideApp('notes'); this.centerChat(); });
+    at(25.1,()=>{ this.move(470,498); });
+    at(25.5,()=>{ this.press(); });
+    at(25.7,()=>{ this.type('askText', 'find today’s NASDAQ & market stats, summarize'); });
+    at(27.2,()=>{ this.move(852,540); });
+    at(27.5,()=>{ this.press(); this.clearType('askText'); });
+    at(27.75,()=>{ this.dock('Searching the web…'); });
+    at(28.2,()=>{ this.showApp('browser'); });
+    at(29.0,()=>{ this.type('browserText', 'nasdaq and market stats today'); });
+    at(30.3,()=>{ this.css('browserResults',{opacity:'1'}); });
+    at(31.4,()=>{ this.done('Summary ready', ['Opened browser','Searched markets','Read 5 sources','Summarized results']); });
+    // wind down
+    at(33.6,()=>{ this.move(350,420); this.css('cursor',{opacity:'0'}); });
+    at(34.0,()=>{ this.css('panel',{opacity:'0'}); this.hideApp('browser'); });
+    this.T = T.sort((a,b)=>a.t-b.t);
+    this.total = 35000;
+  }
+  start(){
+    this.reset();
+    this.schedule();
+  }
+  schedule(){
+    (this.timers || []).forEach(clearTimeout);
+    this.timers = [];
+    this.T.forEach(ev => { this.timers.push(setTimeout(() => { try { ev.fn(); } catch(e){} }, ev.t)); });
+    this.timers.push(setTimeout(() => { this.reset(); this.schedule(); }, this.total));
+  }
+}
+</script>
+</body>
+</html>

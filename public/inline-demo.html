@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+  body { overflow:hidden; font-family:'Inter',-apple-system,sans-serif;
+         display:flex; align-items:center; justify-content:center; background:transparent; }
+
+  #stage { position:relative; width:1000px; height:625px; flex:none; transform-origin:center center; }
+
+  /* the document you're writing in */
+  #doc { position:absolute; top:48px; left:80px; right:80px; bottom:48px;
+         background:#ffffff; border-radius:16px; overflow:hidden;
+         box-shadow:0 30px 70px -24px rgba(26,23,20,0.45); display:flex; flex-direction:column; }
+  .titlebar { height:42px; flex:none; display:flex; align-items:center; padding:0 16px; gap:8px;
+              background:#f5f3ee; border-bottom:1px solid #e7e3da; }
+  .titlebar .d { width:12px; height:12px; border-radius:50%; }
+  .titlebar .t { margin-left:10px; color:#6f6a62; font-size:13.5px; font-weight:600; }
+  .metarow { display:flex; align-items:center; gap:10px; padding:11px 30px; border-bottom:1px solid #efece5; font-size:15.5px; }
+  .metarow .lbl { color:#9a958c; width:56px; flex:none; }
+  .metarow .chip { background:#eef2fb; color:#2f6bd6; border-radius:13px; padding:3px 11px; font-size:14px; font-weight:500; }
+  .metarow .val { color:#1a1714; }
+  .docbody { flex:1; padding:24px 30px; font-size:19px; line-height:1.65; color:#1a1714; white-space:pre-wrap; }
+  #written { white-space:pre-wrap; }
+  #fresh { color:#1a1714; }
+  #dcaret { display:inline-block; width:2px; height:22px; background:#2f6bd6; vertical-align:-3px; margin:0 1px; animation:blink .9s steps(1) infinite; }
+
+  /* the inline bar — exact look from the app: dark box, blue border, ⏎ hint + × close */
+  #bar { position:absolute; width:430px; min-height:52px; background:rgba(8,8,10,0.98);
+         border:1px solid rgba(10,132,255,0.65); border-radius:13px; box-shadow:0 22px 50px -14px rgba(0,0,0,0.6);
+         display:flex; align-items:center; padding:0 16px; gap:10px; z-index:20;
+         opacity:0; transform:translateY(6px) scale(.98); transform-origin:top left;
+         transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.3,.5,1); }
+  #bar.show { opacity:1; transform:translateY(0) scale(1); }
+  #barText { flex:1; color:#f2f2f4; font-size:15px; white-space:nowrap; overflow:hidden; min-height:20px; }
+  #barText .gh { color:#7c7c82; }
+  #bcaret { display:inline-block; width:2px; height:18px; background:#0a84ff; vertical-align:-3px; opacity:0; }
+  #bcaret.on { opacity:1; animation:blink .85s steps(1) infinite; }
+  #ret { color:#8a8a8e; font-size:15px; font-weight:600; flex:none; }
+  #spin { width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.2); border-top-color:#0a84ff; animation:spin .8s linear infinite; display:none; flex:none; }
+  #close { width:20px; height:20px; flex:none; color:#8a8a8e; }
+
+  @keyframes blink { 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="doc">
+      <div class="titlebar">
+        <span class="d" style="background:#ff5f57;"></span><span class="d" style="background:#febc2e;"></span><span class="d" style="background:#28c840;"></span>
+        <span class="t">New Message</span>
+      </div>
+      <div class="metarow"><span class="lbl">To</span><span class="chip">Sarah Chen</span></div>
+      <div class="metarow"><span class="lbl">Subject</span><span class="val" id="subj"></span></div>
+      <div class="docbody">
+        <span id="written"></span><span id="fresh"></span><span id="dcaret"></span>
+      </div>
+    </div>
+
+    <!-- inline command bar -->
+    <div id="bar">
+      <span id="barText"><span id="btx"></span><span id="bcaret"></span></span>
+      <span id="ret">⏎</span>
+      <span id="spin"></span>
+      <svg id="close" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#2a2a2e"/><path d="M9 9 L15 15 M15 9 L9 15" stroke="#a0a0a6" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const stage=$('stage'), bar=$('bar'), btx=$('btx'), bcaret=$('bcaret'), ret=$('ret'), spin=$('spin'),
+        fresh=$('fresh'), dcaret=$('dcaret');
+
+  function fit(){ const s=Math.min(window.innerWidth/1000, window.innerHeight/625); stage.style.transform='scale('+s+')'; }
+  fit(); window.addEventListener('resize', fit); setTimeout(fit,60); setTimeout(fit,250);
+
+  function set(el,o){ for(const k in o) el.style[k]=o[k]; }
+  let timers=[]; function T(ms,fn){ timers.push(setTimeout(fn,ms)); }
+
+  const PROMPT='write Sarah an email — I’m on sick leave tomorrow';
+  const COMPLETION='Hi Sarah,\n\nI woke up feeling unwell, so I’ll be taking a sick day tomorrow. I’ll keep an eye on anything urgent and follow up on the rest as soon as I’m back. Thanks for understanding.\n\nBest,\nHritvik';
+
+  // place the bar just under the document caret (clamped so its 430px width never overflows)
+  function placeBar(){
+    const cr=dcaret.getBoundingClientRect(), sc=stage.getBoundingClientRect(), scale=sc.width/1000;
+    let left=(cr.left-sc.left)/scale;
+    left=Math.max(80, Math.min(left, 1000-430-40));        // keep inside the stage
+    bar.style.left=left+'px';
+    bar.style.top=((cr.bottom-sc.top)/scale+12)+'px';
+  }
+
+  function typeBar(text, dur, done){
+    bcaret.classList.add('on'); btx.textContent='';
+    const ch=[...text]; let i=0; const step=dur/ch.length;
+    (function tick(){ if(i<=ch.length){ btx.textContent=ch.slice(0,i).join(''); i++; T(step,tick);} else { done&&done(); } })();
+  }
+  function writeDoc(text, dur, done){
+    const ch=[...text]; let i=0; const step=dur/ch.length;
+    (function tick(){ if(i<=ch.length){ fresh.textContent=ch.slice(0,i).join(''); i++; T(step,tick);} else { done&&done(); } })();
+  }
+
+  function reset(){
+    timers.forEach(clearTimeout); timers=[];
+    bar.classList.remove('show'); btx.textContent=''; bcaret.classList.remove('on');
+    set(ret,{display:'block'}); set(spin,{display:'none'}); fresh.textContent='';
+    document.getElementById('subj').textContent='';
+  }
+
+  function run(){
+    reset();
+    // 1) shortcut → the inline bar pops up at the cursor
+    T(900, ()=>{ placeBar(); bar.classList.add('show'); });
+    // 2) type the instruction into the bar
+    T(1350,()=> typeBar(PROMPT, 1200));
+    // 3) press Enter → spinner (working)
+    T(2900,()=>{ bcaret.classList.remove('on'); set(ret,{display:'none'}); set(spin,{display:'block'}); });
+    // 4) bar fades away…
+    T(3800,()=>{ bar.classList.remove('show'); });
+    // 5) …and Tine fills in the subject + writes the whole email
+    T(4050,()=>{ document.getElementById('subj').textContent='Out sick tomorrow'; });
+    T(4150,()=> writeDoc(COMPLETION, 3000));
+    // 6) hold the finished draft, then loop
+    T(9600, run);
+  }
+  run();
+})();
+</script>
+</body>
+</html>

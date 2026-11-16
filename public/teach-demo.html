@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+  body { overflow:hidden; font-family:'Inter',-apple-system,sans-serif;
+         display:flex; align-items:flex-start; justify-content:center; background:transparent; }
+  .mono { font-family:ui-monospace,'SF Mono',Menlo,monospace; }
+
+  #stage { position:relative; width:1000px; height:650px; flex:none; transform-origin:top center; }
+  .panel { background:linear-gradient(180deg,#0d0d0d 0%, #000 100%); box-shadow:0 22px 50px -14px rgba(0,0,0,0.55); }
+
+  /* NEUTRAL pill — same as the voice/island sections (sidebar + mic icon) */
+  #pill { position:absolute; top:0; left:50%; margin-left:-150px; width:300px; height:50px;
+          border-radius:0 0 24px 24px; display:flex; align-items:center; padding:0 22px; z-index:6; transition:opacity .3s ease; }
+  #pill .mid { flex:1; display:flex; align-items:center; justify-content:center; gap:11px; }
+  #pill .gdot { width:10px; height:10px; border-radius:50%; background:#2fcf4e; }
+  #pill .nm { color:#fff; font-weight:600; font-size:18px; }
+
+  /* EXPANDED panel */
+  #panel { position:absolute; top:0; left:50%; margin-left:-320px; width:640px;
+           border-radius:0 0 26px 26px; padding:20px 22px 12px; opacity:0; z-index:5; transition:opacity .35s ease; }
+  #panel .head { display:flex; align-items:center; gap:11px; margin-bottom:16px; }
+  #panel .head .gdot { width:10px; height:10px; border-radius:50%; background:#2fcf4e; }
+  #panel .head .nm { color:#fff; font-weight:700; font-size:19px; }
+  #panel .head .sp { flex:1; }
+  #eduIc { color:#d6d6da; transition:color .25s ease; cursor:pointer; }
+  #eduIc.on { color:#ff5f57; }
+
+  /* chat/activity view */
+  .tabs { position:relative; display:flex; background:#2c2c2e; border-radius:11px; padding:4px; margin-bottom:18px; }
+  .tabs .ind { position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px); background:#0a84ff; border-radius:8px; z-index:0; }
+  .tabs .tab { position:relative; z-index:1; flex:1; text-align:center; padding:9px 0; font-weight:600; font-size:15px; color:#bcbcc0; }
+  .tabs .tab.on { color:#fff; }
+  .chatbody { font-size:14.5px; line-height:1.5; color:#e6e6e9; min-height:96px; }
+  .chatbody .me { align-self:flex-end; }
+  .chatbody .bubble { display:inline-block; background:#2c2c2e; color:#f2f2f4; padding:9px 13px; border-radius:14px; margin-top:10px; }
+
+  /* teach form */
+  #teach { display:none; }
+  .well { background:#1a1a1c; border-radius:16px; padding:14px 16px; display:flex; align-items:center; min-height:52px; margin-bottom:12px; }
+  .well .ph { color:#8a8a8e; font-size:15px; flex:1; white-space:nowrap; overflow:hidden; }
+  .well .ph.typed { color:#f2f2f4; }
+  .caret { display:inline-block; width:2px; height:18px; background:#fff; margin-left:1px; vertical-align:middle; opacity:0; }
+  #start { background:#fff; border-radius:13px; height:46px; display:flex; align-items:center; justify-content:center; color:#111; font-weight:700; font-size:16px; margin-top:2px; }
+
+  /* recording view */
+  #rec { display:none; }
+  .recline { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .recline .dot { width:11px; height:11px; border-radius:50%; background:#ff3b30; animation:pulse 1s ease-in-out infinite; }
+  .recline .t { color:#fff; font-weight:600; font-size:15px; }
+  .recline .skill { color:#8fb8ff; }
+  #reclog { min-height:0; }
+  .row { display:flex; gap:8px; font-size:13px; line-height:1.55; padding:2px 0; }
+  .row .tx { color:#8c8c90; white-space:pre-wrap; }
+  .row .tx b { color:#cfcfd2; font-weight:700; }
+  .savecard { margin-top:10px; display:flex; align-items:center; gap:11px; background:#161618; border-radius:13px; padding:12px 14px; opacity:0; transform:translateY(6px); transition:opacity .35s ease, transform .35s ease; }
+  .savecard.show { opacity:1; transform:translateY(0); }
+  .savecard .ic { width:30px; height:30px; border-radius:7px; flex:none; background:#2a2150; display:flex; align-items:center; justify-content:center; }
+  .savecard .t1 { color:#f2f2f4; font-size:13.5px; font-weight:600; }
+  .savecard .t2 { color:#8c8c90; font-size:12px; margin-top:1px; }
+  .savecard .chk { margin-left:auto; width:22px; height:22px; border-radius:50%; background:#1f8a5b; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; flex:none; }
+
+  #chev { display:flex; justify-content:center; margin-top:10px; }
+  #cursor { position:absolute; top:0; left:0; opacity:0; transform:translate(840px,360px) scale(1);
+            transition:transform .85s cubic-bezier(.4,0,.2,1), opacity .3s ease; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35)); z-index:30; }
+  @keyframes blink { 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+</style>
+</head>
+<body>
+  <div id="stage">
+
+    <!-- NEUTRAL (sidebar + mic icon, same as the other sections) -->
+    <div id="pill" class="panel">
+      <span style="display:flex;align-items:center;gap:9px;flex:none;">
+        <svg width="20" height="16" viewBox="0 0 20 18" fill="none"><rect x="1" y="1" width="18" height="16" rx="4" stroke="#d6d6da" stroke-width="1.6"/><line x1="7.5" y1="1" x2="7.5" y2="17" stroke="#d6d6da" stroke-width="1.6"/></svg>
+        <svg width="14" height="18" viewBox="0 0 24 24" fill="none" stroke="#d6d6da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+      </span>
+      <div class="mid"><span class="gdot"></span><span class="nm">Tine</span></div>
+      <svg width="16" height="10" viewBox="0 0 18 11" fill="none" style="flex:none;"><path d="M1 1.5 L9 9 L17 1.5" stroke="#cfcfd2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- EXPANDED panel -->
+    <div id="panel" class="panel">
+      <div class="head">
+        <span class="gdot"></span><span class="nm">Tine</span><span class="sp"></span>
+        <svg id="eduIc" width="22" height="18" viewBox="0 0 24 20" fill="none"><path d="M12 3 L22 7 L12 11 L2 7 Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M18 9 V13.5 C18 15 15 16.5 12 16.5 C9 16.5 6 15 6 13.5 V9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="4.2" stroke="#d6d6da" stroke-width="1.6"/><g stroke="#d6d6da" stroke-width="1.6" stroke-linecap="round"><line x1="11" y1="1.5" x2="11" y2="4"/><line x1="11" y1="18" x2="11" y2="20.5"/><line x1="1.5" y1="11" x2="4" y2="11"/><line x1="18" y1="11" x2="20.5" y2="11"/></g></svg>
+      </div>
+
+      <!-- chat / activity view -->
+      <div id="chat">
+        <div class="tabs"><span class="ind"></span><span class="tab">Activity</span><span class="tab on">Chat</span></div>
+        <div class="chatbody">Hi! I can take actions across your apps — Slack, Notes, the web and more. Want me to learn a task you do a lot? Tap the <b style="color:#b9a8ff;">◣ learn</b> icon.</div>
+      </div>
+
+      <!-- teach form -->
+      <div id="teach">
+        <div class="well"><span class="ph" id="phName">Skill name — e.g. Filter spreadsheet by amount<span class="caret" id="cName"></span></span></div>
+        <div class="well"><span class="ph" id="phDesc">Description — what should it learn? (so the AI understands the task)<span class="caret" id="cDesc"></span></span></div>
+        <div id="start">Start</div>
+      </div>
+
+      <!-- recording -->
+      <div id="rec">
+        <div class="recline"><span class="dot"></span><span class="t">Recording — <span class="skill">Filter spreadsheet by amount</span></span></div>
+        <div id="reclog" class="mono"></div>
+      </div>
+
+      <div id="chev"><svg width="18" height="10" viewBox="0 0 18 11" fill="none"><path d="M1 9 L9 1.5 L17 9" stroke="#8a8a8e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </div>
+
+    <div id="cursor"><svg width="26" height="32" viewBox="0 0 26 32" fill="none"><path d="M3 2 L3 24 L9.5 18.5 L13.5 27.5 L17 26 L13 17 L22 17 Z" fill="#0a84ff" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+
+  </div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const stage=$('stage'), pill=$('pill'), panel=$('panel'), cursor=$('cursor'),
+        chat=$('chat'), teach=$('teach'), rec=$('rec'), reclog=$('reclog'), eduIc=$('eduIc'), start=$('start'),
+        phName=$('phName'), cName=$('cName'), phDesc=$('phDesc'), cDesc=$('cDesc');
+
+  function fit(){ const s=Math.min(window.innerWidth/1000, window.innerHeight/650); stage.style.transform='scale('+s+')'; }
+  fit(); window.addEventListener('resize', fit); setTimeout(fit,60); setTimeout(fit,250);
+
+  function set(el,o){ for(const k in o) el.style[k]=o[k]; }
+  let timers=[]; function T(ms,fn){ timers.push(setTimeout(fn,ms)); }
+
+  function moveCursor(x,y){ set(cursor,{opacity:'1', transition:'transform .8s cubic-bezier(.4,0,.2,1), opacity .3s ease', transform:`translate(${x}px,${y}px) scale(1)`}); }
+  function pressCursor(x,y){
+    cursor.style.transition='transform .12s ease';
+    cursor.style.transform=`translate(${x}px,${y}px) scale(0.82)`;
+    T(130,()=>{ cursor.style.transform=`translate(${x}px,${y}px) scale(1)`;
+      T(150,()=>{ cursor.style.transition='transform .8s cubic-bezier(.4,0,.2,1), opacity .3s ease'; }); });
+  }
+  const HX=3, HY=2;
+  // targets in stage coords (the input wells live BELOW the header at distinct y's)
+  const NOTCH={x:500,y:25}, EDU={x:756,y:32}, NAME={x:360,y:86}, DESC={x:360,y:150}, START={x:500,y:212};
+  function aim(p){ moveCursor(p.x-HX,p.y-HY); } function tap(p){ pressCursor(p.x-HX,p.y-HY); }
+
+  function typeField(ph, caret, text, dur, done){
+    ph.classList.add('typed'); ph.textContent=''; ph.appendChild(caret);
+    caret.style.opacity='1'; caret.style.animation='blink .8s steps(1) infinite';
+    const chars=[...text]; let i=0; const step=dur/chars.length;
+    (function tick(){ if(i<=chars.length){ caret.remove(); ph.textContent=chars.slice(0,i).join(''); ph.appendChild(caret); i++; T(step,tick);} else { caret.style.opacity='0'; done&&done(); } })();
+  }
+  function addRec(html){ const d=document.createElement('div'); d.className='row'; d.innerHTML='<span class="tx">'+html+'</span>'; reclog.appendChild(d); }
+  const GRAD='<svg width="18" height="15" viewBox="0 0 24 20" fill="none"><path d="M12 3 L22 7 L12 11 L2 7 Z" stroke="#b9a8ff" stroke-width="1.6" stroke-linejoin="round"/><path d="M18 9 V13.5 C18 15 15 16.5 12 16.5 C9 16.5 6 15 6 13.5 V9" stroke="#b9a8ff" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+  const NAME_T='Filter spreadsheet by amount';
+  const DESC_T='Filter the sheet to rows where amount is over 1000';
+  const CAPTURED=['<b>CLICK</b> · Amount column header','<b>CLICK</b> · Filter ▸ Greater than','<b>TYPE</b> · “1000”','<b>CLICK</b> · Apply'];
+
+  function reset(){
+    timers.forEach(clearTimeout); timers=[];
+    set(pill,{opacity:'1'}); set(panel,{opacity:'0'});
+    set(chat,{display:'block'}); set(teach,{display:'none'}); set(rec,{display:'none'}); reclog.innerHTML='';
+    eduIc.classList.remove('on');
+    phName.classList.remove('typed'); phName.textContent='Skill name — e.g. Filter spreadsheet by amount'; phName.appendChild(cName); cName.style.opacity='0';
+    phDesc.classList.remove('typed'); phDesc.textContent='Description — what should it learn? (so the AI understands the task)'; phDesc.appendChild(cDesc); cDesc.style.opacity='0';
+    set(cursor,{opacity:'0'}); cursor.style.transform='translate(840px,360px) scale(1)';
+  }
+
+  function run(){
+    reset();
+    // 1) click the notch (anywhere) → opens the chat/activity panel
+    T(500, ()=>aim(NOTCH));
+    T(1400,()=>tap(NOTCH));
+    T(1750,()=>{ set(pill,{opacity:'0'}); set(panel,{opacity:'1'}); });
+    // 2) click the education icon (top right) → switch to the teach form
+    T(2400,()=>aim(EDU));
+    T(3100,()=>{ tap(EDU); eduIc.classList.add('on'); });
+    T(3450,()=>{ set(chat,{display:'none'}); set(teach,{display:'block'}); });
+    // 3) name the skill (first box)
+    T(3800,()=>aim(NAME));
+    T(4450,()=>tap(NAME));
+    T(4750,()=>{ set(cursor,{opacity:'0'}); typeField(phName,cName,NAME_T,1100); });
+    // 4) describe it (second box)
+    T(6150,()=>aim(DESC));
+    T(6800,()=>tap(DESC));
+    T(7100,()=>{ set(cursor,{opacity:'0'}); typeField(phDesc,cDesc,DESC_T,1400); });
+    // 5) press Start → recording
+    T(8900,()=>aim(START));
+    T(9600,()=>{ tap(START); start.style.background='#e8e8ea'; T(180,()=>start.style.background='#fff'); });
+    T(10000,()=>{ set(cursor,{opacity:'0'}); set(teach,{display:'none'}); set(rec,{display:'block'}); addRec('Go ahead and do it once — Tine is watching.'); });
+    // 6) capture the demonstrated steps
+    CAPTURED.forEach((s,i)=>{ T(10700+i*850,()=>addRec('↳ '+s)); });
+    // 7) skill saved card
+    T(10700+CAPTURED.length*850+500,()=>{
+      const d=document.createElement('div'); d.className='savecard';
+      d.innerHTML='<span class="ic">'+GRAD+'</span><div><div class="t1">Skill saved · Filter spreadsheet by amount</div><div class="t2">Just ask next time — Tine replays it end to end</div></div><span class="chk">✓</span>';
+      rec.appendChild(d); requestAnimationFrame(()=>d.classList.add('show'));
+    });
+    // 8) loop
+    T(10700+CAPTURED.length*850+3000, run);
+  }
+  run();
+})();
+</script>
+</body>
+</html>
